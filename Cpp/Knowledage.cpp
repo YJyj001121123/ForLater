@@ -407,3 +407,126 @@ void funcPtr(){
 //程序代码区
 
 ////智能指针
+//shared_ptr：引用计数实现 智能指针不能互相引用 多线程环境加锁
+//shared_ptr的引用计数本身是安全且无锁的，但对象的读写则不是：
+// shared_ptr 有两个数据成员，一个是指向的对象的指针，还有一个是引用计数管理对象
+// 当智能指针发生拷贝的时候，标准库的实现是先拷贝智能指针，再拷贝引用计数对象（拷贝引用计数对象的时候，会使use_count加一）
+// 这两个操作并不是原子操作，隐患就出现在这里。
+// 两个线程中智能指针的引用计数同时++或--，这个操作不是原子的，
+// 假设引用计数原来是1，++了两次，可能还是2，这样引用计数就错乱了，违背了原子性
+//手写shared_ptr：
+class SharedCount {
+public:
+    SharedCount() : count_{1} {}
+    void add() { ++count_; }
+    void minus() { --count_; }
+    int get() const { return count_; }
+private:
+    std::atomic<int> count_; //atomic线程安全的访问修改共享数据
+};
+template<typename T>
+class SharedPtr{
+public:
+    //构造函数创建SharedCount
+    SharedPtr(T *ptr) : ptr_(ptr), ref_cnt_(new SharedCount){}
+    SharedPtr() : ptr_(nullptr), ref_cnt_(new SharedCount){}
+    ~SharedPtr(){clear();}
+    //拷贝构造和拷贝赋值时候 计数加一
+    SharedPtr(const SharedPtr& p){
+        this->ptr_ = p.ptr_;
+        this->ref_cnt_ = p.ref_cnt_;
+        ref_cnt_->add();
+    }
+    SharedPtr& operator=(const SharedPtr& p) {
+        clear();
+        this->ptr_ = p.ptr_;
+        this->ref_cnt_ = p.ref_cnt_;
+        ref_cnt_->add();
+        return *this;
+    }
+    //移动构造和移动赋值 引用计数不变，清空原参数的指针
+    SharedPtr(SharedPtr&& p) {
+        this->ptr_ = p.ptr_;
+        this->ref_cnt_ = p.ref_cnt_;
+        p.ptr_ = nullptr;
+        p.ref_cnt_ = nullptr;
+    }
+    SharedPtr& operator=(SharedPtr&& p)  noexcept {
+        clear();
+        this->ptr_ = p.ptr_;
+        this->ref_cnt_ = p.ref_cnt_;
+        p.ptr_ = nullptr;
+        p.ref_cnt_ = nullptr;
+        return *this;
+    }
+
+private:
+    void clear(){
+        if(ref_cnt_){
+            ref_cnt_->minus();  //创建出来的SharedPtr引用计数是1
+            if(ref_cnt_->get() == 0){
+                if(ptr_) delete ptr_;
+                delete ref_cnt_;
+            }
+        }
+    }
+    SharedCount *ref_cnt_; //引用计数 记录当前有多少个shared_ptr共享同一个对象
+    T* ptr_; //指向对象的指针
+};
+//手写unique_ptr
+//不允许拷贝，禁止调用拷贝构造函数和拷贝赋值函数
+template<typename T>
+class UniquePtr{
+public:
+    UniquePtr(T* ptr) : ptr_(ptr){}
+    UniquePtr() : ptr_(nullptr){}
+    UniquePtr(const UniquePtr& p) = delete;
+    UniquePtr& operator=(const UniquePtr& p) = delete;
+
+    UniquePtr(UniquePtr&& p) {
+        this->ptr_ = p.ptr_;
+        p.ptr_ = nullptr;
+    }
+    UniquePtr& operator=(UniquePtr&& p) {
+        clear();
+        this->ptr_ = p.ptr_;
+        p.ptr_ = nullptr;
+        return *this;
+    }
+    T* get() const { return ptr_; }
+    T* operator->() const { return ptr_; }
+    T& operator*() const { return *ptr_; }
+    operator bool() const { return ptr_; }
+    ~UniquePtr() { clear(); }
+private:
+    void clear() {
+        if (ptr_) delete ptr_;
+    }
+    T* ptr_;
+};
+//weak_ptr
+template<typename T>
+class WeakPtr{
+public:
+    WeakPtr(const SharedPtr<T>& s):ptr(s.ptr_){}
+    T& operator*(){
+        return *ptr;
+    }
+    T* operator->(){
+        return ptr;
+    }
+private:
+    T* ptr;
+};
+
+////内存对齐
+//不是所有的硬件平台都能访问任意地址上的任意数据的；
+//某些硬件平台只能在某些地址处取某些特定类型的数据，否则抛出硬件异常
+//性能考虑：数据结构栈尽可能的在自然边界对齐，为了访问未对齐的内存，处理器需要两次访问。
+
+////浮点数判断
+//不能直接==，要与设定精度比较
+
+////lambda函数
+
+
