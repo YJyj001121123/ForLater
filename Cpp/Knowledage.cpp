@@ -526,7 +526,230 @@ private:
 
 ////浮点数判断
 //不能直接==，要与设定精度比较
+//BOOL : if ( !a ) or if(a)
+//int : if ( a == 0)
+//float : const EXPRESSION EXP = 0.000001
+//if ( a < EXP && a >-EXP)
+//pointer : if ( a != nullptr) or if(a == nullptr)
 
 ////lambda函数
+// []是捕获列表
+// 默认捕获是&和=。
+//[ ]。空捕获列表，lambda不能使用所在函数中的变量。
+//[=]。函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是值传递方式（相当于编译器自动为我们按值传递了所有局部变量）。
+//[&]。函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是引用传递方式（相当于编译器自动为我们按引用传递了所有局部变量）。
+//[this]。函数体内可以使用Lambda所在类中的成员变量。
+//[a]。将a按值进行传递。按值进行传递时，函数体内不能修改传递进来的a的拷贝，因为默认情况下函数是const的。要修改传递进来的a的拷贝，可以添加mutable修饰符。
+//[&a]。将a按引用进行传递。
+//[=，&a, &b]。除a和b按引用进行传递外，其他参数都按值进行传递。
+//[&, a, b]。除a和b按值进行传递外，其他参数都按引用进行传递。
+// （）形参列表
+//修饰符 mutable 允许函数体修改各个复制捕获的对象，以及调用非const对象
+// 默认情况下，值拷贝的变量，lambada不会改变，需要修改就加mutable
+// ->返回类型
 
+////迭代器 ++it 和 it++
+//前置返回引用，后置返回对象，前置不会产生临时对象，后置必须产生临时对象。
 
+////成员函数调用delete this
+//当调用delete this时，类对象的内存空间被释放。在delete this之后进行的其他任何函数调用，
+//只要不涉及到this指针的内容，都能够正常运行。
+//析构函数如果调用delete this，无限递归，堆栈溢出。delete本质是调用析构。
+
+////volatile
+//一种类型修饰符，用它声明的类型变量表示可以被某些编译器未知的因素更改，比如：操作系统、硬件或者其它线程等。遇到这个关键字声明的变量，
+// 编译器对访问该变量的代码就不再进行优化，从而可以提供对特殊地址的稳定访问
+
+////函数调用
+//__stdcall是函数恢复堆栈，
+// 只有在函数代码的结尾出现一次恢复堆栈的代码；在编译时就规定了参数个数，
+// 无法实现不定个数的参数调用；
+// __cdecl
+//__cdecl是调用者恢复堆栈，假设有100个函数调用函数a，
+// 那么内存中就有100端恢复堆栈的代码；可以不定参数个数；
+// 每一个调用它的函数都包含清空堆栈的代码，
+// 所以产生的可执行文件大小会比调用__stacall函数大。
+//寄存器：
+//rax：函数返回值使用。
+//rsp：栈指针寄存器，指向栈顶。
+//栈：栈顶和栈底。地址是最低到高的。栈顶是最低地址。
+//sp（栈指针）。ebp指向栈底，esp指向栈顶。
+//简化理解：main函数（caller）调用foo函数(callee）。、
+// esp被foo使用来指示栈顶，ebp相当于基准指针。
+// 从main传递到foo的参数以及foo本身的局部变量都可以使用ebp参考，
+// 加上偏移量找到。传递的参数，最后一个参数先压入栈，第一个参数位于栈顶的。
+
+/***
+ * ESP---> ｜                                ｜
+ *         ｜被调用者保存的寄存器现场 EBX,ESI和EDI｜
+ *         ｜临时空间                          ｜
+ *         ｜局部变量#2                        ｜    EBP-8
+ *         ｜局部变量#1                        ｜    EBP-4
+ * EBP---> ｜调用者的ESP                       ｜
+ *         ｜返回地址                          ｜
+ *         ｜实际参数#1                        ｜    EBP+8
+ *         ｜实际参数#2                        ｜    EBP+12
+ *         ｜实际参数#3                        ｜    EBP+16
+ *         ｜调用者保存的寄存器现场 EAX，ECX和EDX ｜
+ */
+
+/***
+ * ESP---> ｜实际参数#1                        ｜
+ *         ｜实际参数#2                        ｜
+ *         ｜实际参数#3                        ｜
+ *         ｜调用者保存的寄存器现场 EAX，ECX和EDX ｜
+ *         ｜           ...                   ｜
+ * EBP---> ｜                                 ｜
+  */
+
+/***
+* a = foo(12,15,18)
+调用者
+push dword 18 //压入参数
+push dword 15
+push dword 12
+call foo    //main call指令调用
+当call执行时，eip指令指针寄存器的内容压入栈 调用完成后，esp指向上图的返回地址
+
+Callee foo取得程序控制权，必须完成：建立自己的栈帧，为局部变量分配空间，保存其他寄存器的值。
+ebp的值必须保留，ebp进栈，esp内容赋值给ebp
+push ebp
+mov ebp, esp
+分配局部变量
+sub esp, 20 //分配20字节
+整个foo执行中，esp可能会上下移动，但ebp不动的
+
+返回控制权到main，foo返回值保存在eax寄存器
+消除栈帧
+mov esp,ebp
+pop ebp
+(leave
+ret);
+
+控制权回到调用者main，传递到参数不需要了，需要弹出栈
+add esp 12
+完整来看
+long test(int a, int b){
+    a = a + 3;
+    b = b + 5;
+    return a + b;
+}
+
+int main(){
+    printf("%d", test(10,90));
+    return 0;
+}
+
+int main(){
+00401070    push ebp      //ebp入栈，保存现场
+00401071    mov  ebp,esp
+00401073    sub  esp,40h   //函数使用的堆栈（16*4bytes）
+00401076    push ebx
+00401077    push esi
+00401078    push edi
+00401079    lea  edi,[ebp-40h].
+0040107C    mov  ecx,10h
+00401081    mov  eax,0CCCCCCCCh
+00401086    rep stos   dword ptr [edi].//初始化该函数栈空间为0CCCCCCCC
+    printf("%d", test(10,90));
+00401088    push 5Ah   //参数入栈
+0040108A    push 0Ah
+0040108C    call @ILT+0(test) (00401005) //调用 转向eip 00401005 跳到被调函数
+00401091    add  esp,8   //清除栈
+00401094    push eax
+00401095    push offset string "%d" (0042201c)
+0040109A    call printf (004010d0)
+0040109F    add  esp,8
+    return 0;
+004010A2   xor  eax,eax. //eax清零
+*/
+
+//MFC消息机制
+//消息：使用统一的结构体（MSG）存放信息
+/***
+ * typedef struct tagMsg{
+    HWND hwnd; //句柄
+    UINT message//标明消息的类型
+    WPARAM wParam;
+    LPARAM lParam; //两个最灵活的变量，为不同的消息类型时，存放数据含义不一样。
+    DWORD time; //产生消息的时间
+    POINT pt; //产生消息时鼠标的位置
+} MSG
+ */
+//消息分类：
+//系统定义消息：窗口消息（WM_CREATE、WM_MOUSEMOVE）(与窗口运作相关的、创建窗口、绘制窗口、销毁窗口）、命令消息（WM_COMMAND）（用户从菜单选中一个命令项目，按下快捷键或者控件，发送命令消息）、控件通知（WM_COMMAND、WM_NOTIFY扩展COMMAND消息）。
+//程序定义消息：WM_USER。
+//队列消息：消息先保存在消息队列，消息循环从此队列取消息分发到窗口处理。FIFO的方式。
+//消息ID范围：
+//系统定义范围[0x0000,0x03ff] (WM_NULL(0x0000)空消息）
+//程序定义消息:RegisterWindowMessage[0xC000,0xFFFF]【用来和其他应用程序通信，为了ID的唯一性，使用::RegisterWindowMessage来得到该范围的消息ID 】
+//消息系统分级：
+//第一级：Windows内核的系统消息队列（按照线程不同分发到下一级）
+//第二级：App的UI线程消息队列（每一个UI线程都有自己的消息循环，发送给窗体对象）
+//第三级：处理消息的窗体对象（每一个对象使用窗体过程函数（WindowProc）处理消息。
+//其中WM_COMMAND命令消息会统一由当前活动的窗口接收，绕行后被其他CCmdTarget对象处理。WM_COMMAND控件消息会反射通知子窗口，如果处理了，停止。反之通过OnCmdMsg继续发送。
+/***
+ * CCmdTarget 继承 CObject
+ * CWinThread\ CWnd \CDocument 继承 CCmdTarget
+ * CWinApp继承CWinThread
+ * CObjec类：基类，完成动态空间分配与回收。
+CCmdTarget类：实现消息映射的基类。负责消息发送、等待、派遣的内容。
+CWinThread类：创建处理消息循环。MFC有且仅有一个CWinApp。
+CWnd类：通用窗口类。onwndmsg
+SendMessage和PostMessage：
+前者直接发送给窗口过程处理，处理完返回；后者投递到消息队列，立即返回。
+GetMessage和PeekMessage：
+前者有消息且消息不为WM_QUIT，返回true；有消息且消息为WM_QUIT，false；没有消息的话，挂起UI线程，控制权反给系统。后者不会阻塞，有消息就true，可以删除队列消息。
+MFC消息映射：消息分派机制。
+避免产生宏大的虚函数分配表。
+*/
+
+////回调函数
+//- 函数F1调用函数F2时候，F1通过参数给F2传递了另外一个函数F3的指针。在F2执行的过程中，F2调用F3。（callback）F3被称为回调函数。
+//可以解耦。回调中，主程序把回调函数像参数一样传入主函数，通过修改参数（callback）就可以实现不同功能。
+//- 还有一种用法std::function和std::bind的使用，std::function实例可以对任何可以调用的目标实体进行存储、复制、调用。（目标包括普通函数、Lambda表达式、函数指针、其他对象）。std::bind绑定函数。
+int callback(){
+    printf("Hello");
+    return 0;
+}
+void callback2(int x){
+    printf("Hello, this is Callback_1: x = %d ", x);
+}
+int Handle(int (*Callback)()){
+    printf("h1");
+    Callback();
+    printf("h2");
+}
+void Handle2(void (*Callback)(int)){
+    printf("h1");
+    Callback(2);
+    printf("h2");
+}
+class TestA{
+public:
+    void FA1 () {
+        printf("Hello FA1");
+    }
+    void FA2 () {
+        printf("Hello FA2");
+    }
+};
+class TestB{
+    typedef std::function<void ()> CallbackFunction;
+public:
+    void FB1(CallbackFunction callback){
+        callback();
+    };
+};
+int main(){
+    TestB b;
+    TestA a;
+    b.FB1(std::bind(&TestA::FA2, &a));
+}
+//std::function通常是一个函数对象类，可以包装其他任意的函数对象，可以有参数，返回一个右值类型。闭包类型可以隐式转换为std::function。
+//std::bind预先把指定可调用实体的某些参数绑定到已有变量，产生一个新的可调用实体，不论普通函数还是函数对象，成员函数都可以绑定。
+
+////随机数
+//随机数本身是伪随机数：根据一个数（种子）为基准推算的一系列数字，符合正态分布。计算机开机后，种子的值是确定的。
+//-rand()：范围0～RADN_MAX，每次执行时是相同的。int rand(void);
+//-srand()：设置rand()产生随机数的种子，一般会采用当前时钟。void srand(unsigned int seed)；
