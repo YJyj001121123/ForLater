@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <map>
+#include <future>
+#include <pthread.h>
 
 
 ////引用和指针 & *  ｜｜ 值传递、引用传递、指针传递
@@ -741,7 +743,7 @@ public:
         callback();
     };
 };
-int main(){
+void testBind(){
     TestB b;
     TestA a;
     b.FB1(std::bind(&TestA::FA2, &a));
@@ -753,3 +755,351 @@ int main(){
 //随机数本身是伪随机数：根据一个数（种子）为基准推算的一系列数字，符合正态分布。计算机开机后，种子的值是确定的。
 //-rand()：范围0～RADN_MAX，每次执行时是相同的。int rand(void);
 //-srand()：设置rand()产生随机数的种子，一般会采用当前时钟。void srand(unsigned int seed)；
+
+////禁止栈产生对象
+//protected析构函数， private禁用了继承
+//=delete 禁止使用编译器默认生成的函数
+
+////final
+//禁用继承
+
+////std::call_once 初始化代码使用一次
+//Singleton mode
+//饿汗 static 启动完成构造
+class Singleton {
+public:
+    static Singleton* getInstance() {
+        return singleton_;
+    }
+    static void destroyInstance() {
+        if (singleton_ != NULL) {
+            delete singleton_;
+        }
+    }
+private:
+    Singleton() = default;
+    // 防止拷贝和赋值。
+    Singleton& operator=(const Singleton&) = delete;
+    Singleton(const Singleton& singleton2) = delete;
+private:
+    static Singleton* singleton_;
+};
+//延迟构造
+class Singleton2 {
+public:
+    static Singleton2& GetInstance() {
+        if (!instance_) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!instance_) {
+                instance_.reset(new Singleton2);
+            }
+        }
+        return *instance_;
+    }
+    ~Singleton2() = default;
+private:
+    Singleton2() = default;
+    Singleton2(const Singleton&) = delete;
+    Singleton2& operator=(const Singleton2&) = delete;
+private:
+    static std::unique_ptr<Singleton2> instance_;
+    static std::mutex mutex_;
+};
+//std::call_once 保证函数或者一些代码段在并发或者多线程的情况下，始终只会被执行一次
+class Singleton3 {
+public:
+    static Singleton3& GetInstance() {
+        static std::once_flag s_flag;
+        std::call_once(s_flag, [&]() {
+            instance_.reset(new Singleton3);
+        });
+        return *instance_;
+    }
+    ~Singleton3() = default;
+private:
+    Singleton3() = default;
+    Singleton3(const Singleton3&) = delete;
+    Singleton3& operator=(const Singleton3&) = delete;
+private:
+    static std::unique_ptr<Singleton3> instance_;
+};
+
+////malloc\brk\mmap
+//每个进程都有独立的虚拟内存空间，虚拟地址页表查询获得真实物理地址
+//linux虚拟空间内存：由低到高-->
+// 只读段(只读不写，#define、C常量字符串等）
+// 数据段（全局、静态变量空间）
+// 堆（动态内存，malloc\new 大部分来源与此，栈顶通过函数brk和sbrk动态调整）
+// %esp 执行栈顶，往低地址方向变化；brk/sbrk 函数控制堆顶_edata往高地址方向变化。
+// 文件映射区域 （动态库，共享内存等映射物理空间的内存，一般mmap函数分配的）
+// 栈（维护函数调用的上下文空间，一般为8M，ulimit-s查看）
+// 内核虚拟空间（用户不可见，内核管理的）
+//malloc 维护一个内存空闲链表，申请内存时，搜索链接，找到空闲空间分配。如果搜索不到，使用brk指针去申请
+//进程两种分配内存方式：brk和mmap
+//brk指针：数据段data的最高地址指针_edata往搞地址推。
+//mmap：在进程虚拟空间地址空间中（堆和栈中间，称为文件映射区域的地方）找一块空闲虚拟内存。
+
+////std::thread
+void inc(std::atomic<int> *p){
+    std::mutex mu;
+    for(int i = 0 ; i < 100; i++){
+//        std::unique_lock<std::mutex> lc(mu); //确保加锁
+//        std::lock_guard<std::mutex>lc(mu);
+        mu.lock();
+        (*p)++;
+        mu.unlock();
+    }
+}
+
+void testThread(){
+    std::atomic<int> a = 0;
+    std::thread ta(inc,&a);
+    std::thread tb(inc,&a);
+    ta.join();
+    tb.detach();
+}
+
+////std::condition_variable
+//条件变量，视为pthread_cond_t的封装
+//使用条件变量可以让一个线程等待其他线程的通知（wait\wait_for\wait_until)
+//也可以给其他线程发送通知（notify_one\notify_all)
+//必须配合锁使用，在等待时候因为有解锁和重新加锁，必须手动操作加解锁的锁，lock_guard就不行了，unique_lock可以的
+std::mutex mutex_;
+std::condition_variable cv_;
+void ConDI(){
+    std::thread** t = new std::thread*[10];
+    for(int i = 0; i <10; i++){
+        t[i] = new std::thread([](int index){
+            std::unique_lock<std::mutex> lc(mutex_);
+            cv_.wait_for(lc, std::chrono::hours(1000));
+        },i );
+
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+    }
+    for(int i = 0; i < 10; i++){
+        std::lock_guard<std::mutex> _(mutex_);
+        cv_.notify_one();
+    }
+
+    for(int i = 0; i < 10; i++){
+        t[i]->join();
+        delete t[i];
+    }
+    delete t;
+}
+
+////std::promise/future
+//用来在线程之间进行简单的数据交互，而不需要考虑锁的问题，
+// 线程 A 将数据保存在一个 promise 变量中，
+// 另外一个线程 B 可以通过这个 promise 变量的 get_future() 获取其值，
+// 当线程 A 尚未在 promise 变量中赋值时，线程 B 也可以等待这个 promise 变量的赋值
+//一个 future 变量只能调用一次 get()，如果需要多次调用 get()，
+// 可以使用 shared_future，通过 promise/future 还可以在线程之间传递异常。
+std::promise<std::string > val;
+void ProFur(){
+    std::thread ta([](){
+        std::future<std::string > fu = val.get_future();
+    });
+    std::thread tb([](){
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        val.set_value("pro is set");
+    });
+    ta.join();
+    tb.join();
+}
+
+std::mutex mutex2;
+////std::packaged_task
+void packTask(){
+    auto run = [=](int index){
+        {
+            std::lock_guard<std::mutex> lc(mutex2);
+            std::cout << "task" << index;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        return index *1000;
+    };
+
+    std::packaged_task<int(int)> ptr1(run);
+    std::packaged_task<int(int)> ptr2(run);
+    std::thread ta([&](){
+        ptr1(2);
+    });
+    std::thread tb([&](){
+        ptr1(3);
+    });
+    int f1 = ptr1.get_future().get();
+    int f2 = ptr2.get_future().get();
+    std::cout<<f1;
+    std::cout<<f2;
+    ta.join();
+    tb.join();
+}
+
+///pthread
+//支持posix系统
+//pthread_create 创建线程
+//pthread_create(&thread, &attr, f, static_cast<void *>(&args));
+//其中f是函数，args是所有参数打包成的结构体。因为pthread_create的第四个参数类型是void*，所以需要强制转型 pthread_create只接受void *f(void *)这样的函数签名
+//pthread_exit 终止线程
+//
+//pthread_join 连接线程
+//
+//pthread_detach 分离线程
+//pthread_mutex_lock(&mutex)
+
+// 注意pthread_*函数返回的异常值
+//pthread_mutex_t mutex;
+//pthread_cond_t condvar;
+//
+//std::queue<int> msgQueue;
+//struct Produce_range {
+//    int start;
+//    int end;
+//};
+//
+//void *producer(void *args)
+//{
+//    int start = static_cast<Produce_range *>(args)->start;
+//    int end = static_cast<Produce_range *>(args)->end;
+//    for (int x = start; x < end; x++) {
+//        usleep(200 * 1000);
+//        pthread_mutex_lock(&mutex);
+//        msgQueue.push(x);
+//        pthread_mutex_unlock(&mutex);
+//        pthread_cond_signal(&condvar);
+//        printf("Produce message %d\n", x);
+//    }
+//    pthread_exit((void *)0);
+//    return NULL;
+//}
+//
+//void *consumer(void *args)
+//{
+//    int demand = *static_cast<int *>(args);
+//    while (true) {
+//        pthread_mutex_lock(&mutex);
+//        while (msgQueue.size() <= 0) {
+//            pthread_cond_wait(&condvar, &mutex);
+//        }
+//        if (msgQueue.size() > 0) {
+//            printf("Consume message %d\n", msgQueue.front());
+//            msgQueue.pop();
+//            --demand;
+//        }
+//        pthread_mutex_unlock(&mutex);
+//        if (!demand) break;
+//    }
+//    pthread_exit((void *)0);
+//    return NULL;
+//}
+//
+//
+//int main()
+//{
+//    pthread_attr_t attr;
+//    pthread_attr_init(&attr);
+//    pthread_mutex_init(&mutex, NULL);
+//    pthread_cond_init(&condvar, NULL);
+//
+//    pthread_t producer1, producer2, producer3, consumer1, consumer2;
+//
+//    Produce_range range1 = {0, 10};
+//    pthread_create(&producer1, &attr, producer, static_cast<void *>(&range1));
+//    Produce_range range2 = {range1.end, range1.end + 10};
+//    pthread_create(&producer2, &attr, producer, static_cast<void *>(&range2));
+//    Produce_range range3 = {range2.end, range2.end + 10};
+//    pthread_create(&producer3, &attr, producer, static_cast<void *>(&range3));
+//
+//    int consume_demand1 = 20;
+//    int consume_demand2 = 10;
+//    pthread_create(&consumer1, &attr, consumer,
+//                   static_cast<void *>(&consume_demand1));
+//    pthread_create(&consumer2, &attr, consumer,
+//                   static_cast<void *>(&consume_demand2));
+//
+//    pthread_join(producer1, NULL);
+//    pthread_join(producer2, NULL);
+//    pthread_join(producer3, NULL);
+//    pthread_join(consumer1, NULL);
+//    pthread_join(consumer2, NULL);
+//}
+
+//// 注意某些调用可能会抛出std::system_error
+//std::mutex mutex;
+//std::condition_variable condvar;
+//
+//std::queue<int> msgQueue;
+//
+//void producer(int start, int end)
+//{
+//    for (int x = start; x < end; x++) {
+//        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+//        {
+//            std::lock_guard<std::mutex> guard(mutex);
+//            msgQueue.push(x);
+//        }
+//        printf("Produce message %d\n", x);
+//        condvar.notify_all();
+//    }
+//}
+//
+//void consumer(int demand)
+//{
+//    while (true) {
+//        std::unique_lock<std::mutex> ulock(mutex);
+//        condvar.wait(ulock, []{ return msgQueue.size() > 0;});
+//        // wait的第二个参数使得显式的double check不再必要
+//        printf("Consume message %d\n", msgQueue.front());
+//        msgQueue.pop();
+//        --demand;
+//        if (!demand) break;
+//    }
+//}
+//
+//
+//int main()
+//{
+//    std::thread producer1(producer, 0, 10);
+//    std::thread producer2(producer, 10, 20);
+//    std::thread producer3(producer, 20, 30);
+//    std::thread consumer1(consumer, 20);
+//    std::thread consumer2(consumer, 10);
+//
+//    producer1.join();
+//    producer2.join();
+//    producer3.join();
+//    consumer1.join();
+//    consumer2.join();
+//}
+
+////std::move 和 std::forward
+//std::move不移动任何东西，后者也不移动，
+//仅仅是类型转换函数
+//前者无条件参数转换为右值，后者只是在必要情况下
+
+////如何自定义内存分配
+//当new一个对象时候
+//X *px = new X();
+//编译器生成：
+//void *memory = operator new(sizeof(X));// 得到未经处理的内存
+//call string::string()  on *memory;     // 调用初始化函数
+//X *px = static_cast<X*>(memory);       // px指针指向生成的对象
+
+//new operator ：new的操作符，理解为关键字，操作原语，生成一个对象或者对象数组
+//operator new: 函数，用户自定义
+//placement new：operator new的特例，多一个内存地址作为参数
+//自定义内存分配两种new操作：
+//new operator = operator new + constructor
+//重新实现operator new即可。
+void * operator new(size_t size) {
+//    ...
+//    return 内存地址;
+}
+//节省内存空间，省掉搜索内存表的实际，加快分配，避免内存碎片
+//new operator = placement new + constructor
+//char *buffer = new char[size]; //buffer以已经分配好的内存
+//X *px = new (buffer) X();
+//需要手工释放
+//px->~x();//调用析构函数
+//freeMemory(buffer);//伪代码,释放内存buffer
