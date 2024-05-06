@@ -862,7 +862,7 @@ public:
     static int StaticMember(int a) { return a; }
 };
 
-int main()
+void funCall()
 {
     // 普通函数
     Functional = TestFunc;
@@ -894,7 +894,11 @@ int main()
     TestB b;
     TestA a;
     b.FB1(std::bind(&TestA::FA2, &a));
-    return 0;
 }
+
+//// 05.06
+
+
+
 
 
