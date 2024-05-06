@@ -13,7 +13,7 @@
 
 ////引用和指针 & *  ｜｜ 值传递、引用传递、指针传递
 //指针本身是实体是需要内存空间的，引用只是别名
-//指针可以重新赋值，指翔不同的变量；引用初始化后不能更改的
+//指针可以重新赋值，指向不同的变量；引用初始化后不能更改的
 //不能多级引用但可以多级指针
 //值传递：实参的值传递形参，函数内形参修改不会影响到实参
 //引用传递：实参的引用传递，函数内对形参的修改会影响到实参
@@ -59,12 +59,15 @@ public:
     static void increaseCounter(){
         cnt++;
     }
+    void decrease(){
+        cnt--;
+    }
 };
 int StaticClass::cnt = 0; //需要在类外初始化
 void static_member(){
     std::shared_ptr<StaticClass> s1 = std::make_shared<StaticClass>();
     StaticClass s2; //s1 s2共享cnt
-    StaticClass::increaseCounter();//不用创建对，直接调用静态成员函数
+    StaticClass::increaseCounter();//不用创建对象，直接调用静态成员函数
 }
 //回调函数情况：类成员函数需要回调函数，而这个回调函数需要全局访问。需要static
 // 或者传递它的上下文信息（this）调用非静态
@@ -91,8 +94,8 @@ class Foo{
 const int const_a1 = 10;
 int const const_a2 = 10;  //等价
 //const修饰指针变量*和引用变量&
-const int *const_a3; //修饰指针所指向的变量，const_a3不能变
-int* const const_a4 = nullptr ; // 指针本身为常量，所指向内容可变
+const int *const_a3; //常量指针：修饰指针所指向的变量，const_a3不能变
+int* const const_a4 = nullptr ; // 指针常量：指针本身为常量，所指向内容可变
 const int &const_a5 = 1;
 int const &const_a6 = 1; //等价
 //const修饰函数
@@ -248,7 +251,7 @@ protected:
 //当vector内存不够，重新申请double的内存，复制过去
 //迭代器使用后就失效
 //list：
-//内存空间不是连续的，指针操作。随机存取，时间复杂度O(n)，插入删除O(1)。只能遍历访问。
+//双向链表内存空间不是连续的，指针操作。随机存取，时间复杂度O(n)，插入删除O(1)。只能遍历访问。
 //迭代器使用后可以继续使用
 void Vector_fun(){
     //初始化
@@ -335,7 +338,7 @@ void SetFun(){
     set1.size(); //当前大小
     set1.max_size(); //最大容量
     auto r = set1.empty(); //判断空
-    auto f = set1.count(2); //查找个数 一般0或1
+    auto f = set1.count(2); //查找个数 一般0或1 存在为1 不存在为0
 //    set1.emplace(set2.begin(),2);//任意位置插入2 错误
     set1.insert(set2.begin(),2);
     set1.emplace(2);
@@ -351,7 +354,7 @@ void SetFun(){
     unset1.insert(unset2.begin(),unset2.end());
     unset1.emplace(2); //插入
     auto z2 = unset1.find(2);
-    unset1.count(2); //查找2 有几个  一般0或者1
+    auto res = unset1.count(2); //查找2 有几个  一般0或者1
     unset1.bucket_count();//返回桶数量
     unset1.bucket_size(2);//返回桶2的数量
     unset1.size(); //返回总元素

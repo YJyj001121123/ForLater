@@ -6,6 +6,7 @@
 #include <map>
 #include <list>
 #include <stack>
+#include <unordered_set>
 
 ////多线程
 int count = 0;
@@ -897,8 +898,222 @@ void funCall()
 }
 
 //// 05.06
-
-
-
+//无重复字符的最长子串
+//输入：“abcabcbb"
+//输出：“abc" length=3
+//输入：“bbbbb"
+//输出：“b" length=1
+//思路：滑动窗口 窗口大小不固定
+int lengthOfLongestSubstring(std::string str){
+    if(str.empty()) return 0;
+    std::unordered_set<char> window;
+    int left = 0 ; //左标记位
+    int res = 0;
+    for(int i = 0; i < str.size(); i++){
+        while (window.find(str[i]) != window.end()){
+            window.erase(str[left]);
+            left++;
+        }
+        res = std::max(res, i-left+1);
+        window.insert(str[i]);
+    }
+    return res;
+}
+//反转链表
+//输入：1->2->3->4->5->NULL
+//输出：5->4->3->2->1->NULL
+//思路：双指针
+ListNode* reverseList2(ListNode* head){
+    if(head == nullptr) return nullptr;
+    ListNode* curPtr = head;
+    ListNode* prePtr = nullptr;
+    while(curPtr){
+        ListNode* tempPtr = curPtr->p_next_;
+        curPtr->p_next_ = prePtr;
+        prePtr = curPtr;
+        curPtr = tempPtr;
+    }
+    return prePtr;
+}
+std::list<int> reverseList3(std::list<int> ls){
+    std::list<int> res;
+    if(ls.empty()) return res;
+    std::reverse(ls.begin(),ls.end());
+    return ls;
+}
+//LRU缓存机制---页面置换算法（最近最少使用的页面淘汰）
+//实现：获取get：写入put:当达到上限删除最近最少使用的key。两个操作都变成了O(1)的时间复杂度
+//思路：LinkedHashMap，hash+双向链表。哈希表映射双向链表的节点
+struct DoubleDirctionList{
+    int key;
+    int value;
+    DoubleDirctionList* prev;
+    DoubleDirctionList* next;
+    DoubleDirctionList():key(-1),value(-1),prev(nullptr),next(nullptr){}
+    DoubleDirctionList(int k, int v):key(k),value(v),prev(nullptr),next(nullptr){}
+};
+class LRUCache{
+public:
+    LRUCache(int maxSize):capacity(maxSize){
+        head = new DoubleDirctionList();
+        tail = new DoubleDirctionList();
+        head->next = tail;
+        tail->prev = head;
+    }
+    int getKey(int key){
+        if(!cache.count(key)) return -1; //找不到
+        DoubleDirctionList* curPtr = cache[key];
+        moveNodeToTop(curPtr);
+        return curPtr->value;
+    }
+    void writeKey(int key, int value){
+        //不存在对应key
+        if(!cache.count(key)){
+            //存满了删除
+            if(cache.size() == capacity) deleteLastNode();
+            //存储 表头插入
+            DoubleDirctionList* newNode = new DoubleDirctionList(key,value);
+            DoubleDirctionList* tempPtr = head->next;
+            head->next = newNode;
+            newNode->prev = head;
+            newNode->next = tempPtr;
+            tempPtr->prev = newNode;
+            cache[key] = newNode;
+        } else{ //移动到头部 更新value
+            DoubleDirctionList* cur = cache[key];
+            cur->value = value;
+            moveNodeToTop(cur);
+        }
+    }
+private:
+    void moveNodeToTop(DoubleDirctionList* cur){
+        cur->prev->next = cur->next;
+        cur->next->prev = cur->prev;
+        DoubleDirctionList* temp = head->next;
+        head->next = cur;
+        cur->prev = head;
+        cur->next = temp;
+        temp->prev = cur;
+    }
+    void deleteLastNode(){
+        DoubleDirctionList* last = tail->prev;
+        last->prev->next = tail;
+        tail->prev = last->prev;
+        cache.erase(last->key);
+    }
+    std::unordered_map<int, DoubleDirctionList*> cache;
+    DoubleDirctionList* head;
+    DoubleDirctionList* tail;
+    int capacity; //LRU最大容量
+};
+class LRUCache2{
+public:
+    LRUCache2(int cap):capacity(cap) {}
+    int getKey(int key){
+        if(!cache.count(key)) return -1;
+        auto it  = cache[key];
+        mList.splice(mList.end(),mList,it);
+        return it->second;
+    }
+    void put(int key, int value){
+        if(cache.count(key)){
+            cache[key]->second = value;
+            mList.splice(mList.end(),mList,cache[key]);
+        } else{
+            if(cache.size()==capacity){
+                cache.erase(mList.begin()->first);
+                mList.erase(mList.begin());
+            }
+            cache[key] = mList.insert(mList.end(),std::make_pair(key,value));
+        }
+    }
+private:
+    std::list<std::pair<int, int>> mList;
+    std::unordered_map<int, std::list<std::pair<int,int>>::iterator> cache;
+    int capacity; //LRU最大容量
+};
+//数组中的第K个最大元素
+//输入：[3,2,1,5,6,4] k=2
+//输出：5
+//输入：[3,2,3,1,2,4,5,5,6] k = 4
+//输出：4
+//思路：堆排序 时间复杂度O(n)
+// 递归方式构建大根堆(len是arr的长度，index是第一个非叶子节点的下标)
+void adjustBuild(std::vector<int> &arr, int len, int index){
+    int left = 2*index + 1; // index的左子节点
+    int right = 2*index + 2;// index的右子节点
+    int maxIdx = index;
+    if(left<len && arr[left] > arr[maxIdx])     maxIdx = left;
+    if(right<len && arr[right] > arr[maxIdx])     maxIdx = right;
+    if(maxIdx != index){
+        std::swap(arr[maxIdx], arr[index]);
+        adjustBuild(arr, len, maxIdx);
+    }
+}
+// 堆排序
+void heapSort(std::vector<int> &arr, int size){
+    // 构建大根堆（从最后一个非叶子节点向上）
+    for(int i=size/2 - 1; i >= 0; i--){
+        adjustBuild(arr, size, i);
+    }
+    // 调整大根堆
+    for(int i = size - 1; i >= 1; i--){
+        std::swap(arr[0], arr[i]);      // 将当前最大的放置到数组末尾
+        adjustBuild(arr, i, 0); // 将未完成排序的部分继续进行堆排序
+    }
+}
+//K个一组反转列表
+//输入：1->2->3->4 k=2
+//输出：2->1->4->3
+//思路：递归解决子问题，每次更新子链表的首尾节点
+void reverseListList(ListNode* head) {
+    ListNode* pre = nullptr, *cur = head, *next;
+    while(cur) {
+        next = cur->p_next_;
+        cur->p_next_ = pre; //核心语句---把当前的节点的next指针指向pre所指的节点
+        pre = cur;
+        cur = next;
+    }
+}
+ListNode* reverseKGroup(ListNode* head, int k){
+    int cnt = 0;
+    ListNode* end = head; //end表示待翻转的最后一个节点
+    while(end && ++cnt<k) end = end->p_next_; //找到待翻转的最后一个节点，以end表示
+    if(count<k) return head; //待翻转节点数不足k个，即不用翻转
+    ListNode* temp = end->p_next_; //用temp来保存下一次需要翻转的开始节点
+    end->p_next_ = nullptr; //赋值为NULL是为了reverse函数能够识别应该结束的时刻
+    reverseListList(head); //开始一次k个节点的翻转
+    //因为翻转后，原来的开始节点head变成了结束节点
+    head->p_next_ = reverseKGroup(temp, k);//原来的结束节点end变成了开始节点
+}
+//三数之和为0
+//输入：[-1, 0, 1, 2, -1, -4] k = 0
+//输出：[-1, 0, 1], [-1, -1, 2]
+//思路：排序+双指针
+std::vector<std::vector<int>> threeSum(std::vector<int>& nums){
+    std::vector<std::vector<int>> res;
+    if(nums.size()<3) return res;
+    std::sort(nums.begin(),nums.end());
+    for(int i=0; i < nums.size(); i++){
+        if(i!=0 && nums[i]==nums[i-1]) continue;//如果元素相同，那么后面元素的情况已经被包含
+        int left=i+1, right=nums.size()-1;
+        while(left<right){
+            int sum=nums[left]+nums[right]+nums[i];
+            if(0==sum){
+                std::vector<int> temp;
+                temp.push_back(nums[i]);
+                temp.push_back(nums[left++]);
+                temp.push_back(nums[right--]);
+                res.push_back(temp);
+                //下面两行代码用于去掉重复。一定要有left<right,否则出错。如[0,0,0]
+                while(left<right && nums[left]==nums[left-1]) ++left;
+                while(left<right && nums[right]==nums[right+1]) --right;
+            }
+            else if(sum<0) left++;
+            else  right--;
+        }
+    }
+    return res;
+}
 
 
