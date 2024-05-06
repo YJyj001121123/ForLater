@@ -1115,5 +1115,80 @@ std::vector<std::vector<int>> threeSum(std::vector<int>& nums){
     }
     return res;
 }
-
-
+//最大子数组和---最大和的连续数组
+//输入：[-2,1,-3,4,-1,2,1,-5,4]
+//输出：6 [4,-1,2,1]
+//思路：动态规划（只要求得到结果， 不需要知道子数组）
+//定义状态：dp[i]表示以nums[i]结尾的连续子数组的最大和
+//转移方程：如果dp[i-1]<=0,说明dp[i-1]对dp[i]是负影响，dp[i-1]+nums[i]还不如nums[i]
+//初始状态：dp[0]=nums[0]
+//返回值：返回最大的dp
+int maxSubArray(std::vector<int>& nums){
+    int pre = 0;
+    int res = nums[0];
+    for(int i = 1; i < nums.size(); i++){
+        pre = std::max(pre+nums[i],nums[i]);
+        res = std::max(res, pre);
+    }
+    return res;
+}
+//排序数组
+//输入：nums = [5,2,3,1]
+//输出：[1,2,3,5]
+//思路：快速排序/基准元素
+void quickSort(std::vector<int>& nums, int left, int right){
+    if(left >= right) return ;
+    int i,j,base,temp;
+    i = left, j = right;
+    base = nums[left]; //取左边为基准
+    while(i<j){
+        while(nums[j]>=base && i<j) j--;
+        while(nums[i]<=base && i<j) i++;
+        if(i<j){
+            std::swap(nums[i],nums[j]);
+        }
+    }
+    nums[left] = nums[i];
+    nums[i] = base;  //已经更换基准数
+    quickSort(nums, left, i-1);
+    quickSort(nums, i+1, right); //递归处理左右子数组
+}
+//合并两个有序链表
+//输入：1->2->4   1->3->4
+//输出：1->1->2->3->4->4
+//思路：递归
+ListNode* MergeList2(ListNode* headA, ListNode* headB){
+    if(headA == nullptr || headB == nullptr) return nullptr;
+    ListNode* pMerageHead = nullptr;
+    if(headA->m_value_ < headB->m_value_) {
+        pMerageHead = headA;
+        pMerageHead->p_next_ = MergeList2(headA->p_next_, headB);
+    } else{
+        pMerageHead=headB;
+        pMerageHead->p_next_ = MergeList2(headA, headB->p_next_);
+    }
+}
+//两数之和---返回下标
+//输入：[2,7,11,15] k=9
+//输出：[0,1] nums[0]+nums[1] = 9
+//思路：暴力+哈希
+std::vector<int> twoSum2(std::vector<int>& nums, int k){
+    if(nums.size()==0) return {};
+    for(int i = 0; i<nums.size(); ++i){
+        for(int j = i+1; j<nums.size(); ++j){
+             int key = k - nums[i];
+            if(nums[i]+nums[j] == k) return {i,j};
+        }
+    }
+    return {};
+}
+std::vector<int> twoSum3(std::vector<int>& nums, int k){
+    std::unordered_map<int,int> hash;
+    if(nums.size()==0) return {};
+    for(int i = 0; i<nums.size(); ++i){
+       auto it = hash.find(k-nums[i]);
+       if(it != hash.end()) return {it->second,i};
+       hash[nums[i]] = i; //没有找到 放入hash表
+    }
+    return {};
+}
