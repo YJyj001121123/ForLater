@@ -7,6 +7,7 @@
 #include <list>
 #include <stack>
 #include <unordered_set>
+#include <queue>
 
 ////多线程
 int count = 0;
@@ -1191,4 +1192,230 @@ std::vector<int> twoSum3(std::vector<int>& nums, int k){
        hash[nums[i]] = i; //没有找到 放入hash表
     }
     return {};
+}
+////05.07
+//最长回文字串
+//输入：s="babad"
+//输出：“bab" "aba"
+//输入：s="cbbd"
+//输出："bb"
+//思路：二维动态规划（双指针也可）
+//设置状态：dp[i][j]表示索引j到索引i的子串是否回文
+std::string longestPalindrome(std::string s) {
+    int n = s.size(); // 字符串长度
+    int init = 0; // 记录最长回文子串的起始点
+    int ml = 1; // 记录最大长度
+    std::vector<std::vector<int>> dp(n, std::vector<int> (n)); // 记录是否满足回文
+    for (int i = 1; i < n; i ++ )
+        for (int j = 0; j < i; j ++ )
+            // 若满足回文条件
+            if (s[j] == s[i]) {
+                // 若长度为2或3，则直接判定为回文子串
+                if (i - j == 1 || i - j == 2) dp[j][i] = 1;
+                else {
+                    if (dp[j + 1][i - 1] == 0) continue;
+                    dp[j][i] = 1;
+                }
+                // 若当前串为回文，并且长度大于最大长度，则更新起始点和最大长度
+                if (dp[j][i] == 1 && (i - j + 1) > ml) {
+                    ml = i - j + 1;
+                    init = j;
+                }
+            }
+    return s.substr(init, ml);
+}
+std::string longestPalindromeTwoPtr(std::string& s){
+    std::string res;
+    for(int i = 0; i < s.size(); i++){
+        int l = i, r = i+1; //偶数串
+        while(l>=0&&r<s.size()&&s[l] == s[r]) l--,r++;
+        if(res.size()<r-l-1) res = s.substr(l+1,r-l-1);
+        l = i-1, r = i+1; //奇数串
+        while(l>=0&&r<s.size()&&s[l] == s[r]) l--,r++;
+        if(res.size()<r-l-1) res = s.substr(l+1,r-l-1);
+    }
+    return res;
+}
+//二叉树层序遍历
+//输入：二叉树【3，9，20，null,null.15.7]
+//输出：[3],[9,20][15,7]
+//思路：队列。
+void levelOrder(TreeNode* root){
+    if(root == nullptr) return;
+    std::queue<TreeNode*>q;
+    q.push(root);
+    while(!q.empty()){
+        TreeNode* node = q.front();
+        q.pop();
+        if(node->pLeft) q.push(node->pLeft);
+        if(node->pRight) q.push(node->pRight);
+    }
+}
+//搜索旋转排序数组---nums在下标k进行了旋转
+//输入： [4,5,6,7,0,1,2], 可能旋转了 求target=0是否存在 --->O(logn)
+//输出：4
+//思路：二分法
+int searchTarget(std::vector<int>& nums,int target){
+    if(nums.size() == 0) return -1;
+    int left = 0;
+    int right = nums.size()-1;
+    while(left <= right){
+        int mid = (left+right)/2;
+        if(target == nums[mid]) return mid;
+        if(nums[left] <= nums[mid]){
+            if(target < nums[mid] && target >= nums[left]){
+                right = mid - 1;
+            } else{
+                left = mid + 1;
+            }
+        } else{
+            if(target > nums[mid] && target <= nums[right]){
+                left = mid + 1;
+            } else{
+                right = mid - 1;
+            }
+        }
+    }
+    return -1;
+}
+//买卖股票---买入卖出一次
+//输入：[8,9,2,5,4,7,1]
+//输出：5（在第三天股价=2时买入，第6天股价=7卖出，利润最大。
+//思路：动态规划
+//状态：dp[i][j]
+int maxProfit(std::vector<int>& prices) {
+    int size = prices.size();
+    // dp为多行两列的数组
+    // 第一列表示股票不持股能达到的最大收益
+    // 第二列表示股票持股能保持的最大收益
+    std::vector<std::vector<int>> dp(size, std::vector<int>(2, 0));
+    // 第一天无法卖出，因为没有持股
+    dp[0][0] = 0;
+    // 第一天买入股票，进入持股状态，收益为减去当天股价
+    dp[0][1] = -prices[0];
+    // 动态规划刷新第二天至最后一天的结果
+    for(int i = 1; i < size; ++i){
+        // 第i天不持股的最大收益由两个情况决定：
+        // 一是第i-1天不持股的最大收益，如果该值较大，说明已经完成了较优的交易
+        // 二是第i-1天持股的最大收益，在第i天卖出了，进入不持股状态，
+        // 此时如果卖出的金额比之前买入的金额大，那么该值为正，后续
+        // 除非有更大的买卖差值，否则该值不会刷新
+        dp[i][0] = std::max(dp[i - 1][0], dp[i - 1][1] + prices[i]);
+        // 第i天持股的最大收益由两个情况决定：
+        // 一是第i-1天持股的最大收益，如果该值较大，说明前面已经拿到了较便宜的筹码
+        // 二是第i天股价的负值，说明在当天进行了买入
+        dp[i][1] = std::max(dp[i - 1][1], -prices[i]);
+    }
+    // 最后一天不持股能达到的最大收益就是最优结果
+    return dp[size - 1][0];
+}
+//买卖股票2---多次买入卖出
+//输入：[7,1,5,3,6,4]
+//输出：7（第二天买入，第三天卖出，第四天再买入，第五天卖出）
+//思路：动态贪心 发现p[i+1]>p[i]就买入
+int maxProfit2(std::vector<int>& prices) {
+    int res = 0;
+    for(int i = 0; i < prices.size()-1; i++){
+        if(prices[i+1] > prices[i]){
+            res += prices[i+1]-prices[i];
+        }
+    }
+    return res;
+}
+//岛屿数量---1为陆地 0为谁
+//输入： [1,1,1,1,0]
+//      [1,1,0,1,0]
+//      [1,1,0,0,0]
+//      [0,0,0,0,0]
+//输出：1
+//思路：深度优先遍历
+//四个方向遍历，把与x, y相连的1全部标记为-1
+void dfs2(std::vector<std::vector<char>> &grid, int x, int y){
+    if(x < 0 || x >= grid.size() || y < 0 || y >= grid[0].size() || grid[x][y] != '1')  return;
+    grid[x][y] = -1;
+    dfs2(grid, x+1, y);//向下
+    dfs2(grid, x, y+1);//向右
+    dfs2(grid, x, y-1);//向左
+    dfs2(grid, x-1, y);//向上
+}
+int numIslands(std::vector<std::vector<char>>& grid) {
+    int res = 0;
+    if(grid.empty())    return res;
+    int n = grid.size(), m = grid[0].size();
+    for(int i = 0; i < n; ++i){
+        for(int j = 0; j < m; ++j){
+            if(grid[i][j] == '1'){
+                ++res;
+                dfs2(grid, i, j);
+            }
+        }
+    }
+    return res;
+}
+//有效括号
+//输入：（）  {)
+//输出： true  false
+//思路：栈
+bool isValidParenthesis(std::string& s){
+    std::stack<char> st;
+    for(char c : s){
+        if(st.empty()){
+            st.push(c);
+        } else if(st.top()=='(' && c ==')'){
+            st.pop();
+        } else if(st.top()=='[' && c ==']'){
+            st.pop();
+        } else if(st.top()=='{' && c =='}'){
+            st.pop();
+        } else{
+            st.push(c);
+        }
+    }
+    return st.empty();
+}
+//环形链表--是否有环
+//思路：快慢指针相遇
+bool hasCycle(ListNode* head){
+    ListNode* fast = head;
+    ListNode* slow = head;
+    if(head == nullptr) return false;
+    while(fast != nullptr && fast->p_next_ != nullptr){
+        fast = fast->p_next_->p_next_;
+        slow = slow->p_next_;
+        if(fast == slow) return true;
+    }
+    return false;
+}
+//合并两个有序数组--m,n是元素数目
+//输入：[1,2,3,0,0,0] [2,5,6]
+//输出：[1,2,2,3,5,6]
+void mergeNums(std::vector<int>& nums1, int m, std::vector<int>& nums2, int n) {
+    int i = m - 1, j = n - 1, index = m + n - 1;
+    while (i >= 0 && j >= 0){
+        nums1[index--] = nums1[i] > nums2[j] ? nums1[i--] : nums2[j--];
+    }
+    while (j >= 0) nums1[index--] = nums2[j--];
+}
+//全排列
+//[1,2,3]
+//思路：递归回溯
+std::vector<std::vector<int>> dfs3(std::vector<int>& nums, int x){
+    std::vector<std::vector<int>> res;
+    if(x == nums.size()-1) res.emplace_back(nums);
+    for(int i = x; x < nums.size(); i++){
+        std::swap(nums[i], nums[x]);
+        dfs3(nums, x+1);
+        std::swap(nums[i], nums[x]);
+    }
+    return res;
+}
+//二叉树最近公共祖先---找到该树中两个指定节点的最近公共祖先，可以是本身
+//思路：递归
+TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+    if(root == nullptr) return nullptr;
+    if(root->mValue == p->mValue || root->mValue == q->mValue) return root;
+    TreeNode* leftN = lowestCommonAncestor(root->pLeft,p,q);
+    TreeNode* rightN = lowestCommonAncestor(root->pRight,p,q);
+    if(leftN != nullptr && rightN != nullptr) return root;
+    return leftN != nullptr ? leftN : rightN;
 }

@@ -9,6 +9,8 @@
 #include <map>
 #include <future>
 #include <pthread.h>
+#include <stack>
+#include <queue>
 
 
 ////引用和指针 & *  ｜｜ 值传递、引用传递、指针传递
@@ -215,18 +217,25 @@ initList::initList(int x, int y) : m_y(y), m_x(m_y)
 //相反
 
 ////类实现静态分配和动态分配
+//一个进程的内存空间而言，可以在逻辑上分成3个部份：代码区，静态数据区和动态数据区
 //静态分配：
-//重载new delete 设置private
+//发生在程序编译和链接的时候
+//栈可以静态分配：编译器完成（局部变量的分配
+//重载new delete设置为private
 //动态分配：
+//程序调入和执行的时间
+//堆动态分配的
+//栈可以动态分配：alloca()函数实现。
 //构造析构置为protected 派生类去动态创建
 
 ////合成默认构造函数和合成复制构造函数
+//移动构造&& 右值引用，源对象的资源指针或资源句柄复制给目标对象，避免深拷贝。
 //合成默认构造函数
 //带有默认构造函数的类成员对象：如果一个类没有任何构造函数，但它含有一个成员对象，而后者有默认构造函数，那么编译器就为该类合成出一个默认构造函数。
 //带有默认构造函数的基类
 //带有虚函数的类、虚基类
 //合成的默认构造函数中，只有基类子对象和成员类对象会被初始化。所有其他的非静态数据成员都不会被初始化。
-//合成复制构造函数
+//合成复制构造函数 &
 //复制构造函数有且只有一个本类类型对象的引用形参，通常使用 const限定。因为复制构造函数只是复制对象，没有必要改变传递来的对象的值。
 //每个类必须有一个复制构造函数。如果类没有定义复制构造函数，编译器自动合成一个。
 
@@ -247,11 +256,11 @@ protected:
 
 ////vector和list
 //vector：
-//数组。连续的内存空间，能够高效随机存取，时间复杂度O(1)，插入删除O(n)
+//数组。连续的内存空间，能够高效随机查找，时间复杂度O(1)，插入删除O(n)
 //当vector内存不够，重新申请double的内存，复制过去
 //迭代器使用后就失效
 //list：
-//双向链表内存空间不是连续的，指针操作。随机存取，时间复杂度O(n)，插入删除O(1)。只能遍历访问。
+//双向链表内存空间不是连续的，指针操作。随机查找，时间复杂度O(n)，插入删除O(1)。只能遍历访问。
 //迭代器使用后可以继续使用
 void Vector_fun(){
     //初始化
@@ -269,13 +278,13 @@ void Vector_fun(){
     vector2.clear();  //清空元素  此时vector2仍旧占空间的
     std::vector<int>().swap(vector2);
     auto res = vector5.empty(); //5是否空
-    vector5.push_back(1); //最后插入元素
-    vector5.emplace_back(1);
+    vector5.push_back(1); //最后插入元素首先会创建这个元素，然后再将这个元素拷贝或者移动到容器中（如果是拷贝的话，事后会自行销毁先前创建的这个元素）
+    vector5.emplace_back(1); //效率更好；在实现时，则是直接在容器尾部创建这个元素，省去了拷贝或移动元素的过程。
     vector5.pop_back(); //删除最后一个元素
     vector5.erase(vector5.begin()+1, vector5.end()-3); //删除指定范围元素
     vector5.insert(vector5.begin(), 5); //指定位置插入
     vector5.emplace(vector5.begin(),2);
-    vector5.insert(vector5.begin()+1,vector2.begin(),vector2.end());//指定位置插入2
+    vector5.insert(vector5.begin()+1,vector2.begin(),vector2.end());//指定位置插入2 一个范围
     vector5.size(); //当前元素个数
     vector5.resize(100); //补充100个元素 多删少补
     vector5.resize(20,2); // 补充少补2
@@ -378,6 +387,42 @@ void MapFunction(){
     map1.clear();
     auto c = map1.count(2); //寻找 一般0或者1
 }
+////stack 和 queue
+//stack
+//先进先出，顶部弹出
+//queue
+//只能访问第一个和最后一个元素的容器适配器
+//只能在容器的末尾添加新元素，只能从头部移除元素。
+void stackFunc(){
+    std::stack<int> stack1_; //默认底层容器为queue
+    std::stack<int,std::list<int>> stack2_; //底层容器为双向链表
+    std::stack<int,std::list<int>> stack3_(stack2_);
+    stack1_.push(3);//入栈
+    stack1_.emplace(2);
+    stack1_.pop();//出栈
+    stack1_.top();//访问栈顶
+    stack1_.size();
+    auto res = stack1_.empty();
+}
+void queueFunc(){
+    std::queue<int> data;
+    std::list<int> data_{0,1,2,3};
+    std::queue<int,std::list<int>> q(data_);
+    data.emplace(2);
+    data.push(2);
+    data.pop(); //删除头部
+    data.size();
+    data.empty();
+    data.front(); //返回头部元素
+    data.back();
+}
+
+////迭代器有什么用处？泛型算法的参数为什么接收的都是迭代器？
+//迭代器iterator是C++ STL的组件之一，作用是用来遍历容器，
+//而且是通用的遍历容器元素的方式，无论容器是基于什么数据结构实现的，
+//尽管不同的数据结构，遍历元素的方式不一样，但是用迭代器遍历不同容器的代码是完全一样的。
+//不同容器的迭代器是不能进行比较的
+//容器的元素进行增加、删除操作后，原来的迭代器就全部失效了
 
 ////函数指针
 //函数指针
