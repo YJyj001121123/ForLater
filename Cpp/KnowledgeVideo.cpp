@@ -1,9 +1,18 @@
-
+#include <thread>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <list>
+#include <stack>
+#include <unordered_set>
+#include <queue>
 /***
  * YUV Eye
  * 数据格式
  * opengl https://learnopengl-cn.github.io/intro/
  * Android基础：camera、MediaCodec、FFmpeg、
+ * Windows多媒体框架：https://blog.csdn.net/jay103/article/details/86665419
  * pipeline 输入、video发送、video接收、输出
  * 全流程
  */
@@ -268,21 +277,6 @@ Y U V   Y U V   Y U V   Y U V   Y U V   Y U V
 //4 1 1 --->采样率 1.5
 
 ////OpenGL
-/***
- * 1、特性拓展
- * 2、OpenGL自身是一个巨大的状态机：一系列的变量描述OpenGL此刻应当如何运行。
- * OpenGLContext
- * 3、对象
- * 4、GLFW(提供了渲染物体所需的最低限度的接口。其允许用户创建 OpenGL 上下文，定义窗口参数以及处理用户输入，把物体渲染到屏幕所需的必要功能) GLAD
- * 5、Viewport
- * glViewport(0,0,600,800)
- * 前两个参数控制左下角位置，三四控制渲染窗口的宽度高度（pixel)
- */
-#include <OpenGL/gl3.h>
-
-
-
-
 
 ////全流程
 /***
@@ -306,6 +300,70 @@ Y U V   Y U V   Y U V   Y U V   Y U V   Y U V
  * ------------渲染---------
  * 内部渲染、外部渲染
  */
+
+
+/***
+ * Input Pipeline 节点 从上至下
+ * VideoCaptureSourceNode
+ *        |
+ *        |
+ * VideoFilterNode
+ *        |
+ *        |
+ * VideoInputEntryNode
+ *        |
+ *        |
+ * VideoResizeNode
+ *        |
+ *        |
+ * VideoFrameAbnormalDetcetNode(不正常检查)
+ *                      |
+ *                      |
+ * VideoSRCAnalysisNode    VideoZoomingNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ * VideoDuplicateDetect    VideoEffectNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                VideoHDRNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                VideoDenoiseNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                VideoMirrorNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                自定义处理流程      FileCaptureSourceNode
+ *       ｜                             ｜
+ *       ｜                             ｜
+ *       ｜                       VideoSwitchNode source_switch_node
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *                  ｜           
+ *                  ｜                     
+ *                  ｜                    
+ *      VideoTreeNode pre_watemark_tee_node
+ *          ｜                         ｜
+ *          ｜                         ｜
+ *   VideoWatermarkNode                |         
+ *          ｜                         ｜
+ *          ｜                         ｜
+ *   VideoTreeNode                     |
+     post_watemark_tee_node            |          
+ *          ｜                         ｜
+ *          ｜                         ｜
+ *          |                          |
+ *          |      -------   VideoSwitchNode watermark_switch_node 
+ *          |                     |
+ *          |                     |
+ *  VidepSEISendNode         VideoFilterNode filter_node_after_effect   
+ *          |                     |
+ *          |                     |
+ *  VideoInputDeliveryNode   VideoRenderNode    
+*/
+
+
 
 
 

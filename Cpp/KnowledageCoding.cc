@@ -268,6 +268,8 @@ std::string replaceBlank(std::string str){
 struct ListNode {
     int m_value_;
     ListNode* p_next_;
+    ListNode() : m_value_(0), p_next_(nullptr) {}
+    ListNode(int x) : m_value_(x), p_next_(nullptr) {}
 };
 //反置列表 {1,2,3}
 ListNode* reverseList(ListNode* head) {
@@ -360,7 +362,7 @@ ListNode* FindK(ListNode* head, int k){
 //快慢指针找环 n个节点 相差n去走
 ListNode* MeetingNode(ListNode* head){
     if(head == nullptr) return nullptr;
-    ListNode* low = head,
+    ListNode* low = head;
     ListNode* fast = head;
     while(fast->p_next_ && fast->p_next_->p_next_){
         low = low->p_next_;
@@ -1418,4 +1420,312 @@ TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
     TreeNode* rightN = lowestCommonAncestor(root->pRight,p,q);
     if(leftN != nullptr && rightN != nullptr) return root;
     return leftN != nullptr ? leftN : rightN;
+}
+////05.08
+//二叉树锯齿形层次遍历-先左后右，再右后左
+//输入：二叉树[3，9，20，null,null.15.7]
+//输出：[3],[20,9][15,7]
+//思路：队列
+std::vector<std::vector<int>> zigzagLevelOrder(TreeNode* root) {
+    auto ret = std::vector<std::vector<int>>();
+    if (root == nullptr) return ret;
+    auto queue = std::vector<const TreeNode*>{root};
+    auto isOdd = true;
+    while (!queue.empty()) {
+        auto sz = queue.size();
+        auto level = std::vector<int>();
+        for (auto i = 0; i < sz; ++i) {
+            auto n = queue.front();
+            queue.erase(queue.begin());
+            if (isOdd) level.push_back(n->mValue);
+            else level.insert(level.begin(), n->mValue);
+            if (n->pLeft != nullptr) queue.push_back(n->pLeft);
+            if (n->pRight != nullptr) queue.push_back(n->pRight);
+        }
+        isOdd = !isOdd;
+        ret.push_back(level);
+    }
+    return ret;
+}
+//反转链表2--反转指定位置
+//输入：[1,2,3,4,5] left=2 right=4
+//输出：[1,4,3,2,5]
+ListNode* reverseBetween(ListNode* head, int left, int right){
+    ListNode* dummy = new ListNode(-1);
+    dummy->p_next_ = head;
+    ListNode* prePtr = dummy;
+    for(int i = 0; i < left-1; ++i){
+        prePtr = prePtr->p_next_;
+    }
+    ListNode* curPtr = prePtr->p_next_;
+    for(int i = 0; i < right-left; ++i){
+        ListNode* tempPtr = curPtr->p_next_;
+        curPtr->p_next_ = prePtr;
+        prePtr = curPtr;
+        curPtr = tempPtr;
+    }
+    return head;
+}
+//螺旋矩阵
+//输入：[1,2,3]
+//     [4,5,6]
+//     [7,8,9]
+//输出：[1，2，3，6，9，8，7，4，5]
+//思路：多指针+需要四个方向，上下左右走，难点其实就在于各个方向边界的判断。上右下左一次遍历，注意更新边界条件即可。
+std::vector<int> sporalOrder(std::vector<std::vector<int>>& matrix){
+    std::vector<int> res;
+    int m = matrix.size();
+    int n = matrix[0].size();
+    int top = 0;
+    int bottom = m -1;
+    int left = 0;
+    int right = n -1;
+    while(true){
+        for(int col = left; col <= right; ++col) res.emplace_back(matrix[top][col]);
+        ++top;
+        if(top>bottom) break;
+
+        for(int row = top; row <= bottom; ++row) res.emplace_back(matrix[row][right]);
+        --right;
+        if(right<left) break;
+
+        for(int col = right; col >= left; --col) res.emplace_back(matrix[bottom][col]);
+        --bottom;//右边界左移
+        if(top > bottom) break;
+
+        for(int row = bottom; row >= top; --row) res.emplace_back(matrix[row][left]);
+        ++left;//右边界左移
+        if(right < left) break;
+    }
+    return res;
+}
+
+//合并K个升序链表
+//输入：list=[[1,4,5],[1,3,4][2,6]]
+//输出：[1,1,2,3,4,4,5,6]
+//思路：堆
+struct Compare {
+    bool operator() (ListNode* a, ListNode* b) {
+        return a->m_value_ > b->m_value_;
+    }
+};
+ListNode* mergeKLists(std::vector<ListNode*>& lists) {
+    // 用最小堆，找到最小的节点，加入结果链表中，C++ 里是优先队列实现的
+    std::priority_queue<ListNode*, std::vector<ListNode*>, Compare> pq;
+    // 将每个链表的头节点加入最小堆
+    for (ListNode* list : lists) {
+        if (list) {
+            pq.push(list);
+        }
+    }
+    ListNode dummy(0);
+    ListNode* tail = &dummy;
+    while (!pq.empty()) {
+        ListNode* minNode = pq.top();
+        pq.pop();
+        tail->p_next_ = minNode;
+        tail = tail->p_next_;
+        if (minNode->p_next_) {
+            pq.push(minNode->p_next_);
+        }
+    }
+    return dummy.p_next_;
+}
+//相交链表
+//输入  4->1->8->4->5
+//   5->0->1\
+//输出：相交为 8
+//思路：双指针+一个走完 走下个头 A+B = B+A
+ListNode *getIntersectionNode(ListNode *headA, ListNode *headB) {
+    ListNode* p = headA;
+    ListNode* q = headB;
+    while (p != q){
+        if(p) p = p->p_next_;
+        else p = headB;
+        if(q) q = q->p_next_;
+        else q = headA;
+    }
+    return p;
+}
+//最长上升子序列
+//输入：[10,9,2,5,3,7,101,18]
+//输出：4 [2,3,7,101]
+//思路：动态规划
+int lengthOfLIS(std::vector<int>& nums) {
+    int maxres=1;
+    int n=nums.size();
+    if(n==0) return 0;
+    std::vector<int> res(n,1);
+    for(int i=1;i<n;i++){
+        for(int j=0;j<i;j++){
+            if(nums[i]>nums[j]){
+                res[i]=std::max(res[i],res[j]+1);
+            }
+        }
+        maxres=std::max(maxres,res[i]);
+    }
+    return maxres;
+}
+//字符串相加
+//输入：'123' '11'
+//输出：‘134’
+//思路：
+std::string addStrings(std::string num1, std::string num2) {
+    int i = num1.length()-1, j = num2.length()-1;
+    int carry = 0;
+    std::string res = "";
+    while(i >= 0 || j >= 0){
+        int n1 = 0, n2 = 0;
+        if(i >= 0){
+            n1 = num1[i]-'0';
+        }
+        if(j >= 0){
+            n2 = num2[j]-'0';
+        }
+        int sum = n1 + n2 + carry;
+        res = std::to_string(sum % 10) + res;
+        carry = sum / 10;
+        i--;
+        j--;
+    }
+    if(carry > 0){
+        res = std::to_string(carry) + res;
+    }
+    return res;
+}
+//接雨水
+//输入: [0,1,0,2,1,0,1,3,2,1,2,1]
+//输出: 6
+//思路：单调栈
+int trap(std::vector<int>& height) {
+    int n = height.size(), ans = 0;
+    std::stack<int> st;
+    for (int i = 0; i < n; i++) {
+        while (!st.empty() && height[st.top()] <= height[i]) {
+            int top = st.top();
+            st.pop();
+            if (st.empty()) break;
+            ans += (i - st.top() - 1)
+                    * (std::min(height[st.top()], height[i]) - height[top]);
+        }
+        st.push(i);
+    }
+    return ans;
+}
+//重排链表
+//输入：1->2->3->4->5
+//输出：1->5->2->->4->3
+//思路：找到中间节点，后半段反向；双指针从1和，n开始扫，后半段插入前半段
+void reorderList(ListNode* head){
+    int n = 0; //统计链表的节点个数
+    for(ListNode *p = head; p; p = p->p_next_) n++;
+    if(n <= 2) return;
+    ListNode* curPtr = head;
+    //找中间节点 走到
+    for(int i = 0; i<(n+1)/2 -1;i++) curPtr = curPtr->p_next_;
+    ListNode* a = curPtr; //指向中间了
+    ListNode* b = curPtr->p_next_;
+    //将链表的后半段反向
+    while(b){
+        ListNode *p_next_ = b-> p_next_;
+        b->p_next_  = a;//保留b的next节点
+        a = b, b = p_next_;
+    }
+    curPtr->p_next_ = 0; //给前半段链表添加一个结束标记
+    curPtr->p_next_ = 0; //给前半段链表添加一个结束标记
+    ListNode *tmp = nullptr;
+    //一个是遇到中点停止，一个是head, a左右两指针相遇停止
+    while(head && head != a){
+        tmp = a->p_next_;
+        a->p_next_ = head->p_next_;
+        head->p_next_ = a;
+        head = head->p_next_->p_next_;
+        a = tmp;
+    }
+}
+//环形链表2---返回入环的第一个节点
+//思路：双指针
+ListNode *detectCycle(ListNode *head) {
+    if (head == nullptr || head->p_next_ == nullptr)
+        return nullptr;
+    if (head->p_next_ == head)
+        return head;
+    ListNode* node1 = head->p_next_;
+    ListNode* node2 = head->p_next_->p_next_;
+    while (node1 != node2) {//判断链表是否存在环，同第141题
+        if (node2 == nullptr || node2->p_next_ == nullptr)
+            return nullptr;
+        node2 = node2->p_next_->p_next_;
+        node1 = node1->p_next_;
+    }
+    node2 = head;
+    while (node1 != node2) {//由前述数学分析，双指针再次指向的同一节点，即为环的入口节点
+        node1 = node1->p_next_;
+        node2 = node2->p_next_;
+    }
+    return node1;
+}
+//合并区间
+//输入: [[1,3],[2,6],[8,10],[15,18]]
+//输出: [[1,6],[8,10],[15,18]]
+//解释: 区间 [1,3] 和 [2,6] 重叠, 将它们合并为 [1,6].
+//思路：先排序 按照左端点，然后进一步判断
+std::vector<std::vector<int>> mergeSection(std::vector<std::vector<int>>& nums){
+    std::vector<std::vector<int>> res;
+    if(nums.empty()) return res;
+    std::sort(nums.begin(),nums.end());
+    int left = nums[0][0], right = nums[0][1];
+    for(int i = 1; i < nums.size(); i++){
+        if (nums[i][0] > right){
+            res.push_back({left,right});
+            left = nums[i][0], right = nums[i][1];
+        } else{
+            right = nums[i][0], right[i][1];
+        }
+    }
+    res.push_back({left, right});
+    return res;
+}
+//二叉树最大路径和
+//输入：[1,2,3] ---> 6
+//输入：[-10,9,20,null,null,15,7] --->42 [15->20->7]
+int maxPath(TreeNode* node, int& ans)
+{
+    if(node == nullptr) return 0;
+    int left = maxPath(node->pLeft, ans);
+    int right = maxPath(node->pRight, ans);
+    //经过根节点的情况下，最大路径和
+    int lm = node->mValue + std::max(left, 0) + std::max(right, 0);
+    //不经过根节点情况下，最大路径和为当前节点，加上左右子树中的最大值
+    int rt = node->mValue + std::max(0, std::max(right, left));
+    ans = std::max(ans, std::max(lm, rt));
+    return rt;
+}
+int maxPathSum(TreeNode* root) {
+    int ans = INT_MIN;
+    maxPath(root, ans);
+    return ans;
+}
+//删除链表的倒数第N个节点
+//输入 1->2->3->4->5 n=2
+//输出 1->2->3->5
+//思路 双指针
+ListNode *removeNthFromEnd(ListNode *head, int n) {
+    ListNode *dummyNode = new ListNode();
+    dummyNode->p_next_ = head;
+    ListNode *fast = dummyNode;
+    ListNode *slow = dummyNode;
+    //fast先走n步
+    while (n-- && fast != nullptr) {
+        fast = fast->p_next_;
+    }
+    fast = fast->p_next_;  //fast 走n+1 步
+    //fast slow 一起向前移动,直到fast为空
+    while (fast != nullptr) {
+        fast = fast->p_next_;
+        slow = slow->p_next_;
+    }
+    //删除slow的下一个结点
+    slow->p_next_ = slow->p_next_->p_next_;
+    return dummyNode->p_next_;
 }
