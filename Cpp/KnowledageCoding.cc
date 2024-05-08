@@ -1729,3 +1729,138 @@ ListNode *removeNthFromEnd(ListNode *head, int n) {
     slow->p_next_ = slow->p_next_->p_next_;
     return dummyNode->p_next_;
 }
+
+//复原IP地址--IP四个部分
+//输入：2552551135“
+//输出：'255.255.11.135' '255.255.111.35'
+//思路：回溯的方法
+//最多四步走，cnt<=4
+//走到末尾了，合法ip
+//子串数字不能大于255
+//开头不能为0
+bool isValidSection(const std::string& section){
+    int len = section.size();
+    if(len == 0 || len >3) return false;
+    if(len > 1 && section[0] == '0') return false;
+    int n = 0;
+    for(int i = 0; i < len; i++){
+        char c = section[i];
+        if(c < '0' || c >'9') return false;
+        n = n*10 + (c-'0');
+        if(n>255) return false;
+    }
+    return true;
+}
+void backtrack(const std::string& s, int left, 
+                int sectionNum, std::string& ip, std::vector<std::string>& res){
+    if(sectionNum == 4){
+        if(left == s.size()){
+            res.emplace_back(ip);
+        }
+        return;
+    }
+    for (int i = left; i < left + 3; i++) {
+            if (i >= s.size()) {
+                break;
+            }
+            string section = s.substr(startIndex, i - startIndex + 1);
+            if (isValidSection(section)) {
+                int len = ip.length();
+                if (sectionNum > 0) {
+                    ip += ".";
+                }
+                ip += section;
+                backtrack(s, i + 1, sectionNum + 1, ip, result);
+                ip.resize(len);
+            }
+        }
+}
+std::vector<std::string> restoreIpAddresses(std::string s) {
+    std::vector<string> result;
+    std::string ip;
+    backtrack(s, 0, 0, ip, result);
+    return result;
+}
+//最长公共子序列
+//输入：text1 = "abcde", text2 = "ace" 
+//输出：3 （ace)
+//思路：二维动态规划问题
+int longestCommonSubsequence(std::string text1, std::string text2) {
+        int m = text1.length(), n = text2.length();
+        std::vector<std::vector<int>> dp(m + 1, std::vector<int>(n + 1));
+        for (int i = 1; i <= m; i++) {
+            char c1 = text1.at(i - 1);
+            for (int j = 1; j <= n; j++) {
+                char c2 = text2.at(j - 1);
+                if (c1 == c2) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = std::max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+        return dp[m][n];
+}
+//二叉树中序遍历--左右中
+//输入：root = [1,null,2,3]
+//输出：[1,3,2]
+void inorder(TreeNode* root, vector<int>& res) {
+    if (!root) {
+        return;
+    }
+    inorder(root->left, res);
+    res.push_back(root->val);
+    inorder(root->right, res);
+}
+std::vector<int> inorderTraversal(TreeNode* root) {
+    std::vector<int> res;
+    inorder(root, res);
+    return res;
+}
+//删除链表重复元素
+//输入：head = [1,2,3,3,4,4,5]
+//输出：[1,2,5]
+//思路：hash存储次数
+ListNode* deleteDuplicate(ListNode* head){
+    std::unordered_map<int,int> cnt;
+    if(head == nullptr) return nullptr;
+    ++cnt[head->val];
+    head->p_next_  = deleteDuplicate(head->p_next_);
+    if(cnt[head->m_value] >= 2) return head->p_next_;
+    return head;
+}
+//二分查找法
+//输入: nums = [-1,0,3,5,9,12], target = 9
+//输出: 4
+//解释: 9 出现在 nums 中并且下标为 4
+int twoPartSort(std::vector<int>& nums, int target){
+    int i = 0;
+    int j = nums.size()-1;
+    while(i<=j){
+        int m = (i+j)/2;
+        if(nums[m]<target) i = m+1;
+        else if (nums[m]>target) j = m-1;
+        else return m;
+    }
+    return -1;
+}
+//二叉树的右视图
+//输入: [1,2,3,null,5,null,4]
+//输出: [1,3,4]
+//思路：BFS
+std::vector<int> rightSideView(TreeNode* root) {
+        std::queue<TreeNode*> nodeQueue;
+        if(root != nullptr) nodeQueue.push(root);
+        std::vector<int> res;
+        while (!nodeQueue.empty()) {
+            for(int i = 0; i < nodeQueue.size(); i++){
+                TreeNode* node = que.front();
+                que.pop();
+                if(i = nodeQueue.size()-1) res.push_back(node->mValue);
+                if(node->pLeft) que.push(node->pLeft);
+                if(node->pRight) que.push(node->pRight);
+            }
+        }
+        return res;
+}
+
