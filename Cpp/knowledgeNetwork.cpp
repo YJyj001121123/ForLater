@@ -4,7 +4,145 @@
 //同步是指用户进程触发IO操作并等待或轮询检查IO操作是否就绪，接着阻塞的完成IO操作
 //异步是指用户进程触发IO操作之后就做其它的事情，当IO操作完成之后会得到通知(如读取网络数据，此时数据已经由内核拷贝到用户缓冲区，用户进程可以直接使用)。
 //Reactor模式用于同步IO，Proactor模式用于异步IO
+
+////多路复用
+//linux系统中，实际上所有的I/O设备都被抽象为了文件这个概念，一切皆文件，Everything is File，磁盘、网络数据、终端，甚至进程间通信工具管道pipe等都被当做文件对待
+//多路: 指的是多个socket网络连接;
+//复用: 指的是复用一个线程、使用一个线程来检查多个文件描述符（Socket）的就绪状态
+//阻塞IO:进程阻塞挂起不消耗CPU资源，能及时响应每个操作；实现难度低，适用并发量小的网络应用开发，不适用并发量大的应用，因为一个请求IO会阻塞进程，所以每请求分配一个处理进程（线程）去响应，系统开销大
+//非阻塞式I/O:进程轮询（重复）调用，消耗CPU的资源
+//信号驱动IO:回调机制，向内核注册一个信号处理函数
+//异步IO:Proactor模式
+
+//select
+//当用户process调用select的时候，select会将需要监控的readfds集合拷贝到内核空间
+//（假设监控的仅仅是socket可读），
+//然后遍历自己监控的skb(SocketBuffer)，
+//挨个调用skb的poll逻辑以便检查该socket是否有可读事件，
+//遍历完所有的skb后，如果没有任何一个socket可读，
+//那么select会调用schedule_timeout进入schedule循环，
+//使得process进入睡眠。如果在timeout时间内某个socket上有数据可读了，
+//或者等待timeout了，则调用select的process会被唤醒，
+//接下来select就是遍历监控的集合，挨个收集可读事件并返回给用户了
+int select(
+    int nfds,
+    fd_set *readfds,
+    fd_set *writefds,
+    fd_set *exceptfds,
+    struct timeval *timeout);
+// nfds:监控的文件描述符集里最大文件描述符加1
+// readfds：监控有读数据到达文件描述符集合，传入传出参数
+// writefds：监控写数据到达文件描述符集合，传入传出参数
+// exceptfds：监控异常发生达文件描述符集合, 传入传出参数
+// timeout：定时阻塞监控时间，3种情况
+//  1.NULL，永远等下去
+//  2.设置timeval，等待固定时间
+//  3.设置timeval里时间均为0，检查描述字后立即返回，轮询
+
+/* 
+* select服务端伪码
+* 首先一个线程不断接受客户端连接，并把socket文件描述符放到一个list里。
+*/
+while(1) {
+  connfd = accept(listenfd);
+  fcntl(connfd, F_SETFL, O_NONBLOCK);
+  fdlist.add(connfd);
+}
+/*
+* select函数还是返回刚刚提交的list，应用程序依然list所有的fd，只不过操作系统会将准备就绪的文件描述符做上标识，
+* 用户层将不会再有无意义的系统调用开销。
+*/
+struct timeval timeout;
+int max = 0;  // 用于记录最大的fd，在轮询中时刻更新即可
+// 初始化比特位
+FD_ZERO(&read_fd);
+while (1) {
+    // 阻塞获取 每次需要把fd从用户态拷贝到内核态
+    nfds = select(max + 1, &read_fd, &write_fd, NULL, &timeout);
+    // 每次需要遍历所有fd，判断有无读写事件发生
+    for (int i = 0; i <= max && nfds; ++i) {
+        // 只读已就绪的文件描述符，不用过多遍历
+        if (i == listenfd) {
+            // 这里处理accept事件
+            FD_SET(i, &read_fd);//将客户端socket加入到集合中
+        }
+        if (FD_ISSET(i, &read_fd)) {
+            // 这里处理read事件
+        }
+    }
+}
+//每次调用select，都需要把被监控的fds集合从用户态空间拷贝到内核态空间，高并发场景下这样的拷贝会使得消耗的资源是很大的
+//能监听端口的数量有限
+//被监控的fds集合中，只要有一个有数据可读，整个socket集合就会被遍历一次调用sk的poll函数收集可读事件
+
+//poll
+//poll的实现和select非常相似，只是描述fd集合的方式不同
+struct pollfd {
+　　 int fd;           /*文件描述符*/
+　　 short events;     /*监控的事件*/
+　　 short revents;    /*监控事件中满足条件返回的事件*/
+};
+int poll(struct pollfd *fds, unsigned long nfds, int timeout);  
+//不使用fd_set
+poll服务端实现伪码：
+struct pollfd fds[POLL_LEN];
+unsigned int nfds=0;
+fds[0].fd=server_sockfd;
+fds[0].events=POLLIN|POLLPRI;
+nfds++;
+while {
+    res=poll(fds,nfds,-1);
+    if(fds[0].revents&(POLLIN|POLLPRI)) {
+        //执行accept并加入fds中，nfds++
+        if(--res<=0) continue
+    }
+    //循环之后的fds
+    if(fds[i].revents&(POLLIN|POLLERR )) {
+        //读操作或处理异常等
+        if(--res<=0) continue
+    }
+}
+//epoll
+//epoll最大的好处在于它不会随着监听fd数目的增长而降低效率
+//当创建好epoll句柄后，它就是会占用一个fd值，在linux下如果查看/proc/进程id/fd/，是能够看到这个fd的，所以在使用完epoll后，必须调用close()关闭，否则可能导致fd被耗尽
+int epoll_create(int size); //size 是监听的数目大小
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event); 
+//epoll 的事件注册函数，它不同于 select() 是在监听事件时告诉内核要监听什么类型的事件，而是在这里先注册要监听的事件类型。
+//epfd epoll 专用的文件描述符，epoll_create()的返回值
+//op: EPOLL_CTL_ADD：注册新的 fd 到 epfd 中； EPOLL_CTL_MOD：修改已经注册的fd的监听事件； EPOLL_CTL_DEL：从 epfd 中删除一个 fd；
+//fd:需要监听的文件描述符
+//event:event
+// events可以是以下几个宏的集合：
+// EPOLLIN ：表示对应的文件描述符可以读（包括对端 SOCKET 正常关闭）；
+// EPOLLOUT：表示对应的文件描述符可以写；
+// EPOLLPRI：表示对应的文件描述符有紧急的数据可读（这里应该表示有带外数据到来）；
+// EPOLLERR：表示对应的文件描述符发生错误；
+// EPOLLHUP：表示对应的文件描述符被挂断；
+// EPOLLET ：将 EPOLL 设为边缘触发(Edge Trigger)模式，这是相对于水平触发(Level Trigger)来说的。
+// EPOLLONESHOT：只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个 socket 的话，需要再次把这个 socket 加入到 EPOLL 队列里
+int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout); 
+//等待事件的产生，收集在 epoll 监控的事件中已经发送的事件，类似于 select() 调用
+//events: 分配好的 epoll_event 结构体数组，epoll 将会把发生的事件赋值到events 数组中（events 不可以是空指针，内核只负责把数据复制到这个 events 数组中，不会去帮助我们在用户态中分配内存）
+//maxevents: maxevents 告之内核这个 events 有多少个 
+//timeout: 超时时间，单位为毫秒，为 -1 时，函数为阻塞
+
+//epoll 为什么比select、poll更高效？
+// epoll 采用红黑树管理文件描述符
+// 从上图可以看出，epoll使用红黑树管理文件描述符，红黑树插入和删除的都是时间复杂度 O(logN)，不会随着文件描述符数量增加而改变。
+// select、poll采用数组或者链表的形式管理文件描述符，那么在遍历文件描述符时，时间复杂度会随着文件描述的增加而增加。
+// epoll 将文件描述符添加和检测分离，减少了文件描述符拷贝的消耗
+// select&poll 调用时会将全部监听的 fd 从用户态空间拷贝至内核态空间并线性扫描一遍找出就绪的 fd 再返回到用户态。下次需要监听时，又需要把之前已经传递过的文件描述符再读传递进去，增加了拷贝文件的无效消耗，当文件描述很多时，性能瓶颈更加明显。
+// 而epoll只需要使用epoll_ctl添加一次，后续的检查使用epoll_wait，减少了文件拷贝的消耗。
+
+//select，poll，epoll都是IO多路复用机制，即可以监视多个描述符，一旦某个描述符就绪（读或写就绪），能够通知程序进行相应读写操作。 但select，poll，epoll本质上都是同步I/O，因为他们都需要在读写事件就绪后自己负责进行读写，也就是说这个读写过程是阻塞的，而异步I/O则无需自己负责进行读写，异步I/O的实现会负责把数据从内核拷贝到用户空间。
+// select，poll实现需要自己不断轮询所有fd集合，直到设备就绪，期间可能要睡眠和唤醒多次交替。而epoll其实也需要调用epoll_wait不断轮询就绪链表，期间也可能多次睡眠和唤醒交替，但是它是设备就绪时，调用回调函数，把就绪fd放入就绪链表中，并唤醒在epoll_wait中进入睡眠的进程。虽然都要睡眠和交替，但是select和poll在“醒着”的时候要遍历整个fd集合，而epoll在“醒着”的时候只要判断一下就绪链表是否为空就行了，这节省了大量的CPU时间。这就是回调机制带来的性能提升。
+// select，poll每次调用都要把fd集合从用户态往内核态拷贝一次，并且要把current往设备等待队列中挂一次，而epoll只要一次拷贝，而且把current往等待队列上挂也只挂一次（在epoll_wait的开始，注意这里的等待队列并不是设备等待队列，只是一个epoll内部定义的等待队列）。这也能节省不少的开销。
+
+
+
 ////如何打断异步IO
+
+
 ////KCP协议 https://juejin.cn/post/7204770304400490555
 //kcp快速可靠的协议，基于UDP
 //能以比 TCP 浪费 10%-20% 带宽的代价，换取平均延迟降低 30%-40%，最大延迟降低 3 倍的传输速度。
@@ -84,15 +222,245 @@ ikcp_input(kcp, received_udp_packet, received_udp_size);
 //KCP数据还原成发送端发送的 buffer 数据给应用层
 int ikcp_recv(ikcpcb *kcp,const char*buffer, int length)
 
+///内存分配器
+//默认 KCP 协议使用 malloc/free 进行内存分配释放，如果应用层接管了内存分配，可以用 ikcp_allocator 来设置新的内存分配器
+ikcp_allocator(my_new_macllo,my_new_delete)
+
+///前向纠错
+//进一步提高传输速度，下层协议也许会使用前向纠错技术。
+//前向纠错会根据冗余信息解出原始数据包。
+//这里就需要注意，相同的原始数据包不要两次 input 到 KCP，
+//否则将会导致 KCP 以为对方重发了，这样会产生更多的 ACK 占用额外带宽。
+
+//管理大规模链接
+//需要同时管理大规模的 KCP 连接（比如大于 3000 个），
+//比如你正在实现一套类 epoll 的机制，
+//那么为了避免每秒钟对每个连接大量调用 ikcp_update，
+//我们可以使用 ikcp_check来大大减少 ikcp_update 调用的次数。
+//ikcp_check 返回值会告诉你需要在什么时间点再次调用 ikcp_update（如果中途没有 ikcp_send、ikcp_input 的话，否则中途调用了 ikcp_send、ikcp_input 的话，需要在下一次 interval 时调用 ikcp_update）。
+//标准顺序是每次调用了 ikcp_update 后，
+//使用 ikcp_check 决定下次什么时间点再次调用 ikcp_update，
+//而如果中途发生了 ikcp_send、ikcp_input 的话，
+//在下一轮 interval 立马调用 ikcp_update 和 ikcp_check。
+//使用该方法，原来在处理 2000 个 KCP 连接且每个连接每 10ms 调用一次 update，改为 check 机制后，CPU 从 60% 降低到 15%。
+
+///避免缓存积累延迟
+//当你持续调用 ikcp_send，首先会填满 KCP 的 snd_buf，
+//如果 snd_buf 的大小超过发送窗口 snd_wnd 限制，则会停止向 snd_buf 里追加数据包，
+//只会放在 snd_queue里面滞留着，等待 snd_buf 有新位置了
+//（因为收到远端 ACK/UNA 而将历史包从 snd_buf中移除）
+//才会从 snd_queue 转移到 snd_buf，等待发送。
+//TCP 发送窗口满了不能发送了，
+//会阻塞住或者 EAGAIN/EWOULDBLOCK；KCP 发送窗口满了，
+//ikcp_send 并不会给你返回 -1，而是让数据滞留在 snd_queue 里等待有能力时再发送。
+//为什么 KCP 在发送窗口满的时候不返回错误呢？这个问题当年设计时权衡过，如果返回希望发送时返回错误的 EAGAIN/EWOULDBLOCK 你势必外层还需要建立一个缓存，等到下次再测试是否可以 send
+
+//怎么解决缓存积累问题
+//重新设置wnd的大小
+//其他策略：视频点播和传文件一样，而视频直播，一旦 ikcp_waitsnd 超过阈值了，除了不再往 KCP 里发送新的数据包，你的视频应该进入一个「丢帧」状态，直到 ikcp_waitsnd 降低到阈值的 1/2，这样你的视频才不会有积累延迟。
+//同时，如果你能做的更好点，waitsnd 超过阈值了，代表一段时间内网络传输能力下降了，此时你应该动态降低视频质量，减少码率，等网络恢复了你再恢复。
+
+//协议栈分层组装
+//不要试图将任何加密或者 FEC 相关代码实现到 KCP 里面，请实现成不同协议单元并组装成你的协议栈。
+//标准协议单元：KCP 的 input/output 方法用来对接下层的 UDP 收发模块。而 ikcp_send、ikcp_recv提供给上层逻辑调用实现协议的收发。
+//KCP 的 input/output 方法用来对接下层的 UDP 收发模块。而 ikcp_send、ikcp_recv提供给上层逻辑调用实现协议的收发。
+
+//支持收发可靠和非可靠数据---自己实现
+connection.send(channel,pkt,size)
+channel == 0 使kcp发送可靠包， channel == 1 使用UDP发送非可靠包
+//因为传输是你自己实现的，你可以在发送 UDP 包的头部加一个字节，来代表这个 channel，收到远程来的 UDP 以后，也可以判断 channel == 0 的话，把剩下的数据给 ikcp_input，否则剩下的数据为远程非可靠包
+//再统一封装一个 connection.recv 函数，先去 ikcp_recv 那里尝试收包，收不到的话，看刚才有没有收到 channel == 1 的裸 UDP 包，有的话返回给上层用户。
+
+//和现有 TCP 服务器整合
+//KCP 可以用在 TCP 的基建上，在登陆时由服务端返回 UDP 端口和密钥，客户端通过 TCP 收到以后，向服务端的 UDP 端口每隔一秒重复发送包含握手信息，直到服务端返回成功或者失败。服务端通过 UDP 传上来的密钥得知该客户端 sockaddr 对应的 TCP 连接，这样就建立 TCP 连接到 UDP 连接的映射关系。为了保持连接和 NAT 出口映射，客户端一般需要每 60 秒就发送一个 UDP 心跳，服务端收到后回复客户端，再在这个 UDP 连接的基础上增加调用 KCP 的逻辑，实现快速可靠传输，这样一套 TCP/UDP 两用的传输系统就建立了。
+//客户端连接 TCP，服务端为该 TCP 连接分配一个整数 id 作为标识。
+//登录后服务端给客户端发送 UDP 握手信息，包括：自己的 UDP 端口、用户的 TCP 标识 id、32 位随机数 key。
+//客户端给服务端 UDP 地址发送握手信息，把刚才服务端发过来的 (id, key) 发送给服务端
+//服务端确认 UDP 握手，并且记录该用户 UDP 远端地址
+//以后客户端和服务端 UDP 通信，每个包都包含 (id, key)
+//服务端用客户端发上来的 (id, key)，确认用户身份，并对比远端地址确认是否是合法用户
+//为了保持 NAT 映射关系，UDP 需要每隔 60 秒就像服务器 ping 一次。同时为了防止出口地址改变（NAT 映射改变，或者移动设备切换基站），可以使用重连或者 UDP 重绑定（但是在移动网络环境，出口改变，TCP 也就断了，所以简单重连也没问题）
+
 
 ////Websocket协议 https://zhuanlan.zhihu.com/p/581974844 https://juejin.cn/post/6844903604864679943
-//websocket 是一个全双工通信的网络技术，属于应用层协议，初始化连接是复用了http的连接通道，底层仍是建立在TCP协议之上的。
-//升级：客户端通过HTTP请求与WebSocket服务端协商升级协议。协议升级完成后，后续的数据交换则遵照WebSocket的协议
-//数据开销少：协议控制的数据包头部较小，而且支持自定义子协议等
+//websocket 是一个全双工通信的网络技术，属于应用层协议，
+//初始化连接是复用了http的连接通道，底层仍是建立在TCP协议之上的。
+//允许服务端主动向客户端推送数据,解决了轮询造成的同步延迟问题
+//在WebSocket API中，浏览器和服务器只需要完成一次握手，
+//两者之间就直接可以创建持久性的连接，并进行双向数据传输
+
+//需要通过调用WebSocket构造函数来创建一个WebSocket连接，
+//构造函数会返回一个WebSocket实例，可以用来监听事件
+//WS和WSS分别代表了客户端和服务端之间未加密和加密的通信
+var ws = new WebSocket("ws://echo.websocket.org", "myProtocol");
+
+//WebSocket通信
+//连接握手分为两个步骤：请求和应答。WebSocket利用了HTTP协议来建立连接，使用的是HTTP的协议升级机制。
+//C-->S端
+//GET ws://localhost…… HTTP/1.1 ：打开阶段握手，使用http1.1协议。
+//Upgrade：websocket，表示请求为特殊http请求，请求的目的是要将客户端和服务端的通信协议从http升级为websocket。
+//Sec-websocket-key：Base64 encode 的值，是浏览器随机生成的。客户端向服务端提供的握手信息。
+//S-->C端
+//101状态码：表示切换协议。服务器根据客户端的请求切换到Websocket协议。
+//Sec-websocket-accept: 将请求头中的Set-websocket-key添加字符串并做SHA-1加密后做Base64编码，告知客户端服务器能够发起websocket连接。
+
+//客户端发起连接的约定:
+// 如果请求为wss,则在TCP建立后，进行TLS连接建立。
+// 请求的方式必须为GET，HTTP版本至少为HTTP1.1。
+// 请求头中必须有Host。
+// 请求头中必须有Upgrade，取值必须为websocket。
+// 请求头中必须有Connection，取值必须为Upgrade。
+// 请求头中必须有Sec-WebSocket-Key，取值为16字节随机数的Base64编码。
+// 请求头中必须有Sec-WebSocket-Version，取值为13。
+// 请求头中可选Sec-WebSocket-Protocol，取值为客户端期望的一个或多个子协议(多个以逗号分割)。
+// 请求头中可选Sec-WebSocket-Extensitons，取值为子协议支持的扩展集(一般是压缩方式)。
+// 可以包含cookie、Authorization等HTTP规范内合法的请求头。
+// 客户端检查服务端的响应:
+// 服务端返回状态码为101代表升级成功，否则判定连接失败。
+// 响应头中缺少Upgrade或取值不是websocket，判定连接失败。
+// 响应头中缺少Connection或取值不是Upgrade，判定连接失败。
+// 响应头中缺少Sec-WebSocket-Accept或取值非法（其值为请求头中的Set-websocket-key添加字符串并做SHA-1加密后做Base64编码），判定连接失败。
+// 响应头中有Sec-WebSocket-Extensions,但取值不是请求头中的子集，判定连接失败。
+// 响应头中有Sec-WebSocket-Protocol,但取值不是请求头中的子集，判定连接失败。
+// 服务端处理客户端连接:
+// 服务端根据请求中的Sec-WebSocket-Protocol 字段，选择一个子协议返回，如果不返回，表示不同意请求的任何子协议。如果请求中未携带，也不返回。
+// 如果建立连接成功，返回状态码为101。
+// 响应头Connection设置为Upgrade。
+// 响应头Upgrade设置为websocket。
+// Sec-WebSocket-Accpet根据请求头Set-websocket-key计算得到，计算方式为：Set-websocket-key的值添加字符串： 258EAFA5-E914-47DA-95CA-C5AB0DC85B11并做SHA-1加密后得到16进制表示的字符串，将每两位当作一个字节进行分隔，得到字节数组，对字节数组做Base64编码。
+
 
 ////RTMP协议 https://mp.weixin.qq.com/s?__biz=MjM5MTkxOTQyMQ==&mid=2257484827&idx=1&sn=249da45e5c2c6bff776fe0fdcff42548&chksm=a5d4e04992a3695f0c9472673dbe22917a78cc3d26c934928c95feb13dc87db3bd62966d8cec&scene=21#wechat_redirect
+//Real Time Message Protocol（实时信息传输协议）
+//一种应用层的协议，用来解决多媒体数据传输流的多路复用（Multiplexing）和分包（Packetizing）的问题
+//RTMP 在两个对等的通信端之间通过可靠的传输协议（例如 TCP）提供双向的消息多路服务，
+//用来传输带有时间信息的并行的视频、音频和数据。
+//通常的协议的实现会给不同类型的消息赋予不同的优先级，
+//当传输能力受到限制时它会影响消息下层流发送的队列顺序
 
+//数据传输流程
+//发送端
+//YUV、PCM 通过编码 封装成消息message
+//把消息分割成块（Chunk）
+//将分割后的块（Chunk）通过传输协议（如 TCP）协议发送到网络传输出去
+//接收端
+//在通过 TCP 协议收到后块（Chunk）数据
+//先将块（Chunk）重新组装成消息（Message)
+//message 解码 解封装恢复原本的音视频数据
 
+//分包
+//RTMP 里有两个重要的概念：消息和块。
+//消息，服务于数据封装，是 RTMP 协议中的基本数据单元；块，服务于网络传输
+//可以将大的消息（Message）数据分包成小的块（Chunk）通过网络来进行传输，
+//这个也是 RTMP 能够实现降低延时的核心原因
+
+//多路复用
+//音频、视频数据在分割成块时对传输通道是透明的，
+//这样音频、视频数据就能够合到一个传输流中进行同步传输，实现了多路复用。
+//这个流就是『块流（Chunk Stream）』。
+//在 RTMP 直播中，实时生成视频 Chunk 和音频 Chunk，依次加入到数据流，
+//通过网络发送到客户端。
+//这样的复用传输流，也是音视频同步的关键
+
+//优先级
+//块流（Chunck Stream）这一层没有优先级的划分，
+//优先级的设计是放在『消息流（Message Stream）』这层来实现的。
+//不同的消息具有不同的优先级。当网络传输能力受限时，
+//优先级用来控制消息在网络底层的排队顺序
+//控制消息 > 音频消息 > 视频消息 
+//要使得这样的优先级能够得到有效执行，分块也是非常关键的措施：
+//将大消息切割成小块，可以避免大的低优先级的消息（如视频消息）
+//堵塞了发送缓冲从而阻塞了小的高优先级的消息（如音频消息或控制消息）
+
+//块大小协商
+//RTMP 发送端，在将消息（Message）切割成块（Chunk）的过程中，
+//是以 Chunk Size（默认值 128 字节）为基准进行切割的
+//Chunk Size 越大，切割时 CPU 的负担越小；但在带宽不够宽裕的环境下，发送比较耗时，会阻塞其他消息的发送。
+//Chunk Size 越小，利于网络发送；但切割时 CPU 的负担越大，而且服务器 CPU 负担也相对较大。不适用于高码率数据流的情况。
+
+//压缩优化
+//最完整的 RTMP Chunk Header 长度是 12 字节
+//chunk type(2bits)  chunk stream id(6 bits) timestamp(3bytes) message length(3bytes) msg type id(1 byte) msg stream id(4bytes)
+//一般情况下，msg stream id 是不会变的，所以针对视频或音频，
+//除了第一个 Chunk 的 RTMP Chunk Header 是 12 字节的，
+//后续的 Chunk 可省略这个 4 字节的字段，
+//采用 8 字节的 RTMP Chunk Heade
+
+//RTMP消息
+//消息头 和 有效负载
+//消息头:
+//消息类型（Message Type），1 字节，表示消息类型。其中 1-6 的取值是保留给协议控制消息使用的。
+// 长度（Length），3 字节，表示有效负载的长度（不包含消息头的长度）。单位是字节，使用大端格式。
+// 时间戳（Timestamp），4 字节，表示消息时间戳。使用大端格式。
+// 消息流 ID（Message Stream ID），3 字节，用来标识消息流。使用大端格式。
+
+//消息交互：
+//RTMP 的连接开始于握手。握手内容不同于协议的其它部分，
+//它包含三个固定大小的块，而不是带头信息的变长块。
+//客户端（发起连接的端点）和服务器各自发送相同的三个块。
+//为了演示，这三个块客户端发送的被记做 C0，C1，C2；服务发送的被记做 S0，S1，S2。
+
+//握手顺序：
+// 客户端发送 C0 和 C1 块开始握手。
+// 客户端必须（MUST）等接收到 S1 后才能发送 C2。
+// 客户端必须（MUST）等接收到 S2 后才能发送其它数据。
+// 服务器必须（MUST）等接收到 C0 才能发送 S0 和 S1，也可以（MAY）等接到 C1 一起之后。
+// 服务器必须（MUST）等到 C1 才能发送 S2。
+// 服务器必须（MUST）等到 C2 才能发送其它数据。
+
+//录制视频
+//  +--------------------+                     +-----------+
+//      |  Publisher Client  |        |            |   Server  |
+//      +----------+---------+        |            +-----+-----+
+//                 |           Handshaking Done          |
+//                 |                  |                  |
+//                 |                  |                  |
+//        ---+---- |----- Command Message(connect) ----->|
+//           |     |                                     |
+//           |     |<----- Window Acknowledge Size ------|
+//   Connect |     |                                     |
+//           |     |<------ Set Peer BandWidth ----------|
+//           |     |                                     |
+//           |     |------ Window Acknowledge Size ----->|
+//           |     |                                     |
+//           |     |<----- User Control(StreamBegin) ----|
+//           |     |                                     |
+//        ---+---- |<-------- Command Message -----------|
+//                 |    (_result- connect response)      |
+//                 |                                     |
+//        ---+---- |--- Command Message(createStream) -->| 
+//    Create |     |                                     |
+//    Stream |     |                                     |
+//        ---+---- |<------- Command Message ------------| 
+//                 |  (_result- createStream response)   |
+//                 |                                     |
+//        ---+---- |---- Command Message(publish) ------>|
+//           |     |                                     |
+//           |     |<----- User Control(StreamBegin) ----|
+//           |     |                                     |
+//           |     |------ Data Message (Metadata) ----->|
+//           |     |                                     |
+// Publishing|     |------------ Audio Data ------------>| 
+//   Content |     |                                     |
+//           |     |------------ SetChunkSize ---------->|
+//           |     |                                     |
+//           |     |<--------- Command Message ----------|
+//           |     |      (_result- publish result)      |
+//           |     |                                     |
+//           |     |------------- Video Data ----------->|
+//           |     |                  |                  |
+//           |     |                  |                  |
+//                 |    Until the stream is complete     |
+//                 |                  |                  |
+
+//块
+//块流的第一个消息都包含了时间戳和载荷的类型识别，
+//所以块流除了工作在 RTMP 协议上，
+//也可以使用其他协议来发送消息数据。
+//RTMP 块流和 RTMP 协议协同工作很适合于各种和样的音视频程序，从一对一和一对多的直播到视频点播服务再到互动会议程序
+
+//格式
+//每一个块由块头和数据组成；块头又由块基本头、消息头和扩展时间戳三个部分组成
 
 ////基础知识
 ////TCP/IP如何达到可靠传输的 TCp 传输层 iP是网络层
