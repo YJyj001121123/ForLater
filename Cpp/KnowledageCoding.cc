@@ -1203,6 +1203,24 @@ std::vector<int> twoSum3(std::vector<int>& nums, int k){
 //输出："bb"
 //思路：二维动态规划（双指针也可）
 //设置状态：dp[i][j]表示索引j到索引i的子串是否回文
+int longestPalindrome3(string s) {
+    std::vector<std::vector<bool>> dp(s.size(), std::vector<bool>(s.size()); // i，j表示字符子串s(i到j)，故可以用二维数组表示
+    int res = 0;
+    for (int i = s.size() - 1; i >= 0; i--) {  // 注意遍历顺序
+        for (int j = i; j < s.size(); j++) {
+            if (s[i] == s[j]) {
+                if (j - i <= 1) { // 情况一 和 情况二
+                    result++;
+                    dp[i][j] = true;
+                } else if (dp[i + 1][j - 1]) { // 情况三
+                    result++;
+                    dp[i][j] = true;
+                }
+            }
+        }
+    }
+    return result;
+}
 std::string longestPalindrome(std::string s) {
     int n = s.size(); // 字符串长度
     int init = 0; // 记录最长回文子串的起始点
@@ -1226,18 +1244,7 @@ std::string longestPalindrome(std::string s) {
             }
     return s.substr(init, ml);
 }
-std::string longestPalindromeTwoPtr(std::string& s){
-    std::string res;
-    for(int i = 0; i < s.size(); i++){
-        int l = i, r = i+1; //偶数串
-        while(l>=0&&r<s.size()&&s[l] == s[r]) l--,r++;
-        if(res.size()<r-l-1) res = s.substr(l+1,r-l-1);
-        l = i-1, r = i+1; //奇数串
-        while(l>=0&&r<s.size()&&s[l] == s[r]) l--,r++;
-        if(res.size()<r-l-1) res = s.substr(l+1,r-l-1);
-    }
-    return res;
-}
+
 //二叉树层序遍历
 //输入：二叉树【3，9，20，null,null.15.7]
 //输出：[3],[9,20][15,7]
@@ -1863,4 +1870,67 @@ std::vector<int> rightSideView(TreeNode* root) {
         }
         return res;
 }
+
+////05.09
+//无重复子串 --- 利用ordered_set利用元素无序且唯一的特性
+//反转链表 --- 一定保存curNode的next 后继变前继 前继成cur cur成后继
+//LRU缓存 --- ordered_set作为cache 双向链表（拥有前继和后继指针）注意移动表头的操作 std::list的操作
+//数组K最大元素 --- 堆排序 大根堆 根结点大于左右节点
+//             构建大根堆需要最后非叶节点 size/2 -1 交换首尾 末尾元素继续构建
+//K个一组反转链表 --- 找个范围递归 然后 反转
+//三数和为0 --- 排序 选定一个基准num[i] left right
+
+//最大子数组和 ---  一维动态规划 dp[i] 比较num[i]结尾的值 和 num[i-1]之前子数组的最大
+//最长回文子串 --- 二维动态规划 dp[i][j] 表示索引i到索引j的子串是否回文 s[i] == s[j] dp[i][j] = dp[i+1][j-1]
+//           --- 一个字符串的头尾两个字符都不相等，那么这个字符串一定不是回文串；递进判断子串
+//           --- 一个字符串的头尾两个字符都相等：情况一：下标i = j 情况二：i-j=1 相差1 情况三：相差大于1
+//           --- 注意遍历顺序从下到上，从左到右
+//for (int i = s.size() - 1; i >= 0; i--) {  // 注意遍历顺序
+//    for (int j = i; j < s.size(); j++) {
+//        if (s[i] == s[j]) {
+//            if (j - i <= 1) { // 情况一 和 情况二
+//                result++;
+//                dp[i][j] = true;
+//            } else if (dp[i + 1][j - 1]) { // 情况三
+//                result++;
+//                dp[i][j] = true;
+//            }
+//        }
+//    }
+//}
+//买卖股票 --- 二维动态规划 五部曲
+//        --- 确定dp数组的含义
+//        --- 确定递推公式
+//        --- 初始化数组
+//        --- 遍历顺序
+//最长上升子序列 --- dp[i]以nums[i]结尾的最长递增子序列的长度
+//             --- if (nums[i] > nums[j]) dp[i] = max(dp[i], dp[j] + 1);
+//for (int i = 1; i < nums.size(); i++) {
+//    for (int j = 0; j < i; j++) {
+//        if (nums[i] > nums[j]) dp[i] = max(dp[i], dp[j] + 1);
+//    }
+//    if (dp[i] > result) result = dp[i]; // 取长的子序列
+//}
+
+//快排---找基准 然后递归左右数组即可
+//合并两个有序链表---递归找头
+//两数之和 --- 利用hash
+
+//二叉树层序遍历 --- 利用队列
+//二叉树 锯齿形遍历 --- 队列 标志位控制左右方向
+
+//搜索旋转数组 --- 二分
+
+//岛屿数量 --- DFS
+//有效括号 ---  栈 后进先出
+//环形链表 --- 快慢指针相遇
+//合并有序数组 --- 直接做
+//全排列 -- 递归
+//二叉树最近公共祖先 --- 递归
+
+//螺旋矩阵 硬解
+//合并K个升序链表 ---优先级队列
+//接雨水 ---  栈
+
+
 
