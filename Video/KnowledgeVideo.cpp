@@ -318,8 +318,8 @@ Y U V   Y U V   Y U V   Y U V   Y U V   Y U V
  *        |
  * VideoFrameAbnormalDetcetNode(不正常检查)
  *                      |
- *                      |
- * VideoSRCAnalysisNode    VideoZoomingNode
+ * (Screen pipeline)    | （camera pipeline)
+ * VideoSRCAnalysisNode    VideoZoomingNode 
  *       ｜                     ｜
  *       ｜                     ｜
  * VideoDuplicateDetect    VideoEffectNode
@@ -337,34 +337,75 @@ Y U V   Y U V   Y U V   Y U V   Y U V   Y U V
  *       ｜                自定义处理流程      FileCaptureSourceNode
  *       ｜                             ｜
  *       ｜                             ｜
- *       ｜                       VideoSwitchNode source_switch_node
+ *       ｜                  VideoSwitchNode source_switch_node
  *       ｜                     ｜
  *       ｜                     ｜
  *                  ｜           
  *                  ｜                     
  *                  ｜                    
- *      VideoTreeNode pre_watemark_tee_node
+ *      VideoTeeNode pre_watemark_tee_node
  *          ｜                         ｜
  *          ｜                         ｜
  *   VideoWatermarkNode                |         
  *          ｜                         ｜
  *          ｜                         ｜
- *   VideoTreeNode                     |
+ *   VideoTeeNode                      |
      post_watemark_tee_node            |          
  *          ｜                         ｜
  *          ｜                         ｜
  *          |                          |
- *          |      -------   VideoSwitchNode watermark_switch_node 
+ *          | --------------   VideoSwitchNode watermark_switch_node 
  *          |                     |
  *          |                     |
- *  VidepSEISendNode         VideoFilterNode filter_node_after_effect   
+ *          |               VideoFilterNode filter_node_after_effect   
  *          |                     |
- *          |                     |
- *  VideoInputDeliveryNode   VideoRenderNode    
+ *          |                  VideoRenderNode
+ *  VidepSEISendNode         
+ *          |                     
+ *  VideoInputDeliveryNode  
+ *          |     
+ *          |
 */
 
 
 
-
+/*** Output Pipeline
+ * 
+ * VideoDeliverNode
+ *        |
+ *        |
+ * VideoAlphaNode
+ *        |
+ *        |
+ * ---------------------------------------------
+ *                      |
+ *                      | 
+ *       ｜                 VideoSuperResolutionNode 
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                 VideoSharpenNode
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                 VideoTeeNode (video_mos_tee_node)
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                     ｜
+ *       ｜                     ｜ ------------------
+ * --------------------------------------------------------
+ *       ｜                     ｜                   |
+ *       ｜                     ｜                   |
+ *       ｜                     ｜                   |
+ * ------------------------------------    VideoFrameAbnormalDetcetNode(不正常检查)
+ *                   |                              ｜
+ *                   |                              ｜
+ *       VideoOutputEntryNode                   VideoMosNode
+ *                   |                              
+ *                   |                              
+ *          VideoFilterNode
+ *                   |                              
+ *                   |  
+ *          VideoRenderNode                            
+*/
 
 

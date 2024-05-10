@@ -1932,5 +1932,239 @@ std::vector<int> rightSideView(TreeNode* root) {
 //合并K个升序链表 ---优先级队列
 //接雨水 ---  栈
 
+////05.10
+//寻找两个正序数组的中位数
+//输入：nums1 = [1,2], nums2 = [3,4]
+//输出：2.50000
+//解释：合并数组 = [1,2,3,4] ，中位数 (2 + 3) / 2 = 2.5
+//思路：双指针
+double findMedianSortedArrays(std::vector<int>& nums1, std::vector<int>& nums2) {
+    int m = nums1.size();
+    int n = nums2.size();
+    int total = m + n;
+    int half = total / 2; //计算中位数所在的位置
+    int i = 0, j = 0;
+    int prev = 0, curr = 0; //初始化两个变量用于记录当前元素和前一个元素
+    while (i + j <= half) {
+        prev = curr;
+        if (i < m && (j >= n || nums1[i] < nums2[j])) {
+            curr = nums1[i];
+            i++;
+        } else {
+            curr = nums2[j];
+            j++;
+        }
+    }
+    if (total % 2 == 1) {
+        return curr;
+    } else {
+        return (prev + curr) / 2.0;
+    }
+}
+//两个栈实现队列 队列尾部插入节点 队列头部删除节点
+template <typename T>
+class CQueue{
+public:
+    CQueue();
+    ~CQueue();
+    void addTail(const T& node);
+    T deleHead();
+private:
+    std::stack<T> stack1;
+    std::stack<T> stack2;
+};
+template<typename T>void CQueue<T>::addTail(const T &node) {
+    stack1.push(node);
+}
+template<typename T>T CQueue<T>::deleHead(){
+    if(stack2.size() <= 0){
+        while(stack1.size() > 0){
+            T& data = stack1.top();
+            stack2.push(data);
+        }
+    }
+    if(stack2.size() == 0) throw new std::exception;
+    T head = stack2.pop();
+    stack2.pop();
+    return  head;
+}
+//排序链表
+//输入：4->2->1->3
+//输出：1->2->3->4
+//思路：归并排序
+ListNode* mergeSortList(ListNode* head){
+    if (!head || !head->next) return head;
+    int n = 0;
+    for(auto i = head; i != nullptr; i = i->next)  ++n; //n为链表长度
+    auto dummy = new ListNode(-1);
+    dummy->next = head;
+    // 总体循环次数为logn
+    for(int i = 1; i < n; i += i){
+        auto beg = dummy;
+        // 最开始1个和1个合并为两个，然后2,2->4, 4,4->8
+        for(int j = 0; j + i < n; j += 2*i){ //j += 2*i为下一块的起点
+            auto left = beg->next;
+            auto right = left;
+            for(int k = 0; k < i; ++k)  right = right->next;//right指向第二块的起点,每块有i个节点，越过i个节点即可
+            // merge第一块和第二块，起点分别为left, right
+            // 第一块的节点数为i, 第二块的节点数可能小于i（为i-1）,因为节点个数有奇偶之分,所以需要检查right != NULL
+            int p = 0, q = 0;//计数
+            while(p < i && q < i && right != NULL){
+                if(left->val <= right->val){
+                    beg->next = left;
+                    left = left->next;
+                    ++p;
+                }else{
+                    beg->next = right;
+                    right = right->next;
+                    ++q;
+                }
+                beg = beg->next;
+            }
+            while(p < i){// 可能还有剩余未处理的
+                beg->next = left;
+                beg = beg->next;
+                left = left->next;
+                ++p;
+            }
+            while(q < i && right != NULL){
+                beg->next = right;
+                beg = beg->next;
+                right = right->next; //right会指向下一块的起点
+                ++q;
+            }
+            // 处理完之后beg指向的是两块中（已经排序好）元素最大的那个节点
+            beg->next = right; //调整beg位置，将beg和下一块连接起来
+        }
+    }
+    return dummy->next;
+}
+//下一个排列---给出下一个更大的 否则最小的开始
+//输入：3,2,1
+//输出：1，2，3
+//思路：全排列 后面遍历
+void nextPermutation(vector<int>& nums) {
+    int n = nums.size(), i = n - 2, j = n - 1;
+    while (i >= 0 && nums[i] >= nums[i + 1]) --i;
+    if (i >= 0) {
+        while (nums[j] <= nums[i]) --j;
+        swap(nums[i], nums[j]);
+    }
+    reverse(nums.begin() + i + 1, nums.end());
+}
+//x的平方根
+//二分
+int mySqrt(int x) {
+    if (x <= 1) return x;
+    int left = 0, right = x;
+    while (left < right) {
+        int mid = left + (right - left) / 2;
+        if (x / mid >= mid) left = mid + 1;
+        else right = mid;
+    }
+    return right - 1;
+}
+//字符串转换为整数
+//输入：“42”
+//输出：42
+//输入: "words and 987"
+//输出: 0
+//解释: 第一个非空字符是 'w', 但它不是数字或正、负号。
+//因此无法执行有效的转换。
+int myAtoi(string str) {
+    if (str.empty()) return 0;
+    int sign = 1, base = 0, i = 0, n = str.size();
+    while (i < n && str[i] == ' ') ++i;
+    if (i < n && (str[i] == '+' || str[i] == '-')) {
+        sign = (str[i++] == '+') ? 1 : -1;
+    }
+    while (i < n && str[i] >= '0' && str[i] <= '9') {
+        if (base > INT_MAX / 10 || (base == INT_MAX / 10 && str[i] - '0' > 7)) {
+            return (sign == 1) ? INT_MAX : INT_MIN;
+        }
+        base = 10 * base + (str[i++] - '0');
+    }
+    return base * sign;
+}
+//爬楼梯
+//输入：3
+//输出：3  3种方法 1+1+1 1+2 2+1
+//思路：动态规划
+int climbStairs(int n) {
+    std::vector<int> dp(n+1); //初始化数组
+    if (n<=2){
+        return n;
+    }
+    dp[0] = 0;
+    dp[1] = 1;
+    dp[2] = 2;
+    for(int i=3;i<n+1;i++){
+        dp[i] = dp[i-2] + dp[i-1];
 
-
+    }
+    return dp[n];
+}
+//两数相加--给定两个非空链表来表示两个非负整数，位数按照逆序方式存储
+//输入：(2 -> 4 -> 3) + (5 -> 6 -> 4)
+//输出：7 -> 0 -> 8
+//原因：342 + 465 = 807
+ListNode* addTwoNumbers(ListNode* l1, ListNode* l2) {
+    ListNode *pHead = new ListNode(0);  //头节点
+    ListNode* p = pHead;
+    ListNode *p1 = l1,*p2 = l2,*p3 = pHead;
+    ListNode *pNext = nullptr;
+    int sum = 0,temp = 0;
+    while(p1 != nullptr || p2 != nullptr){
+        int x = (p1 != nullptr) ? p1->m_value_ : 0;
+        int y = (p2 != nullptr) ? p2->m_value_ : 0;
+        sum = x + y + temp;
+        temp = sum / 10;    //保存十位数字
+        p3->next = new ListNode (sum % 10);        //创建个位数字节点添加到链表中
+        p3 = p3->p_next_;
+        if(p1 != nullptr)
+            p1 = p1->p_next_;
+        if(p2 != nullptr)
+            p2 = p2->p_next_;
+    }
+    if(temp == 1){
+        p3->next = new ListNode(1);
+    }
+    return pHead->p_next_;
+}
+//括号生成
+//输入：n = 3
+// 输出：[
+//“((()))”,
+//“(()())”,
+//“(())()”,
+//“()(())”,
+//“()()()”
+//]
+//思路：动态规划
+std::vector<std::string> generateParenthesis(int n) {
+    std::vector<std::vector<std::string>> alls(1, { "" }); // 初始化带有f(0)的存储数组
+    // 从n = 1开始计算f(n)，并存储到alls中
+    for (int j = 1; j <= n; j++) {
+        std::vector<std::string> temp;
+        for (int i = 0; i < j; i++)
+            for (std::string& left : alls[i])
+                for (std::string& right : alls[j - 1 - i])
+                    temp.push_back("(" + left + ")" + right); // "("f(n-1)")"f(0), "("f(n-2)")"f(1) ... "("f(1)")"f(n-2), "("f(0)")"f(n-1)
+        alls.push_back(temp);
+    }
+    return alls[n];
+}
+//比较版本号
+int compareVersion(string v1, string v2) {
+    int i = 0, j = 0;
+    while(i < v1.size() || j < v2.size())
+    {
+        int num1 = 0, num2 = 0;
+        while(i < v1.size() && v1[i] != '.') num1 = num1 * 10 + v1[i++] - '0';
+        while(j < v2.size() && v2[j] != '.') num2 = num2 * 10 + v2[j++] - '0';
+        if(num1 > num2) return 1;
+        else if( num1 < num2) return -1;
+        i++,j++;
+    }
+    return 0;
+}
