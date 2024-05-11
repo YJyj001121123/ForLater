@@ -2168,3 +2168,37 @@ int compareVersion(string v1, string v2) {
     }
     return 0;
 }
+//缺失的第一个正数
+//输入：[1,2,0]
+//输出：3
+//思路：
+int firstMissingPositive(vector<int>& nums) {
+    for(int i=0;i<nums.size();i++)
+    {
+        if(nums[i]<=0 || nums[i]>nums.size())
+        {
+            nums[i]=0;
+        }
+    }
+    int n=nums.size();
+    for(int i=0;i<nums.size();i++)
+    {
+        if(nums[i]%(n+1)!=0)
+        {
+            int t=0;
+            t=nums[i]%(n+1);
+            nums[t-1]+=n+1;
+        }
+    }
+    int a=1,j=0;        
+    for(;j<nums.size();j++)
+    {
+        if(nums[j]<(n+1))
+        {
+            // cout<<"aa"<<endl;
+            a=j+1;
+            break;
+        }
+    }
+    return (j==n)?n+1:a;
+}
