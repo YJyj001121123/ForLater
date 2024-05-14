@@ -338,26 +338,7 @@ void delteDup(ListNode* head){
     }
 
 }
-//输出倒数第k个节点
-//只遍历一遍 双指针 差k 一个走到尾节点即可
-ListNode* FindK(ListNode* head, int k){
-    if(head == nullptr || k == 0) return nullptr;
-    ListNode* pCurrent = head;
-    ListNode* pPre = nullptr;
-    for(int i = 0 ; i < k; i++){
-        if(pCurrent->p_next_ != nullptr){
-            pCurrent = pCurrent->p_next_;
-        } else {
-            return nullptr;
-        }
-    }
-    pPre = head;
-    while(pCurrent->p_next_ != nullptr){
-        pCurrent = pCurrent->p_next_;
-        pPre = pPre->p_next_;
-    }
-    return pPre;
-}
+
 //链表环的入口节点
 //快慢指针找环 n个节点 相差n去走
 ListNode* MeetingNode(ListNode* head){
@@ -2201,4 +2182,43 @@ int firstMissingPositive(vector<int>& nums) {
         }
     }
     return (j==n)?n+1:a;
+}
+//输出倒数第k个节点
+//只遍历一遍 双指针 差k 一个走到尾节点即可
+ListNode* FindK(ListNode* head, int k){
+    if(head == nullptr || k == 0) return nullptr;
+    ListNode* pCurrent = head;
+    ListNode* pPre = nullptr;
+    for(int i = 0 ; i < k; i++){
+        if(pCurrent->p_next_ != nullptr){
+            pCurrent = pCurrent->p_next_;
+        } else {
+            return nullptr;
+        }
+    }
+    pPre = head;
+    while(pCurrent->p_next_ != nullptr){
+        pCurrent = pCurrent->p_next_;
+        pPre = pPre->p_next_;
+    }
+    return pPre;
+}
+//零钱兑换
+//输入 【1，2，5】 target = 12
+//输出 3  最少三个硬币 5+5+1
+//思路:动态规划
+//dp[j]凑足金额为j所需钱币最少的个数
+//dp[j] = min(dp[j - coins[i]] + 1, dp[j]);
+int coinChange(vector<int>& coins, int amount) {
+    std::vector<int> dp(amount + 1, INT_MAX);
+    dp[0] = 0;
+    for (int i = 0; i < coins.size(); i++) { // 遍历物品
+        for (int j = coins[i]; j <= amount; j++) { // 遍历背包
+            if (dp[j - coins[i]] != INT_MAX) { // 如果dp[j - coins[i]]是初始值则跳过
+                dp[j] = std::min(dp[j - coins[i]] + 1, dp[j]);
+            }
+        }
+    }
+    if (dp[amount] == INT_MAX) return -1;
+    return dp[amount];
 }
