@@ -1,5 +1,6 @@
 
 #include <stack>
+#include <queue>
 /***
  * 栈---先进后出
  * 栈是数据结构 不是容器 没有iterator
@@ -82,3 +83,24 @@ public:
         return que1.empty();
     }
 };
+//有效括号
+//输入：（）  {)
+//输出： true  false
+//思路：栈
+bool isValidParenthesis(std::string& s){
+    std::stack<char> st;
+    for(char c : s){
+        if(st.empty()){
+            st.push(c);
+        } else if(st.top()=='(' && c ==')'){
+            st.pop();
+        } else if(st.top()=='[' && c ==']'){
+            st.pop();
+        } else if(st.top()=='{' && c =='}'){
+            st.pop();
+        } else{
+            st.push(c);
+        }
+    }
+    return st.empty();
+}

@@ -51,7 +51,7 @@ void static_conut(){
     cnt++;
     std::cout<<cnt; //多次调用cnt累加，不会每次从0开始
 }
-//静态全局变量：函数外部声明。只局限在声明它的文件内
+//静态全局变量：函数外部声明。只局限在声明它的文件内 extern其他文件可以访问
 static int cnt = 0; //当前文件共享的变量，其他文件无法访问
 //静态成员变量：类中，类的所有对象共有的。
 //静态成员函数：类的所有对象共享。只能访问静态成员数据、其他静态成员函数和类外部函数。
@@ -222,11 +222,13 @@ initList::initList(int x, int y) : m_y(y), m_x(m_y)
 //发生在程序编译和链接的时候
 //栈可以静态分配：编译器完成（局部变量的分配
 //重载new delete设置为private
+//将类的new操作符设置为private或者delet
 //动态分配：
 //程序调入和执行的时间
 //堆动态分配的
 //栈可以动态分配：alloca()函数实现。
 //构造析构置为protected 派生类去动态创建
+//类的析构函数设置为private
 
 ////合成默认构造函数和合成复制构造函数
 //移动构造&& 右值引用，源对象的资源指针或资源句柄复制给目标对象，避免深拷贝。
@@ -1126,6 +1128,7 @@ void packTask(){
 //std::move不移动任何东西，后者也不移动，
 //仅仅是类型转换函数
 //前者无条件参数转换为右值，后者只是在必要情况下
+//由于传参可能存在值传递、左值引用、常量左值引用、右值引用等情况，为了保证参数的属性和类型不发生变化，我们需要使用std::forward实现完美转发
 
 ////如何自定义内存分配
 //当new一个对象时候
@@ -1185,3 +1188,99 @@ void * operator new(size_t size) {
 //sendfile
 //splice
 
+////inline marco
+//内联函数通过避免被调用的开销来提高执行效率，尤其是它能够通过调用（“过程化集成”）被编译器优化
+//宏是预编译器的输入，然后宏展开之后的结果会送去编译器做语法分析
+
+////多态
+//静态多态通过重载、模板来实现；
+//动态多态就是通过虚函数来体现的
+//每个声明了虚函数或者继承了虚函数的类都会有
+//vtbl（virtual table）和vptr（virtual table pointer
+//纯虚函数：定义纯虚函数的目的在于，使派生类仅仅只是继承函数的接口
+//只有当一个类被用来作为基类的时候，才把析构函数写成虚函数
+//虚函数不能内联：内联函数是指在编译期间用被调用的函数体本身来代替函数调用的指令，但是虚函数的“虚”是指“直到运行时才能知道要调用的是哪一个函数
+//如果在基类的构造函数中调用了虚函数，并且这个虚函数在某个派生类中被重写了，那么在创建这个派生类的对象时，虚函数调用将只会执行基类版本的虚函数，而不会执行派生类版本的虚函数。这是因为，此时派生类部分的对象还没有被完全构造好，所以不能调用派生类的成员函数
+//虚继承：菱形继承问题
+//虚函数表是由类维护的，而非单独为每个对象维护的
+//同一个类的两个对象使用相同的虚函数表，但它们各自持有自己的指向这个虚函数表的指针，重写 维护新的
+
+////指针
+//悬挂指针: 悬挂指针产生于指针所指向的内存已被释放或者失效后，指针本身没有及时更新或清空
+//野指针: 野指针通常是指未初始化的指针，它没有被设置为任何有效的地址
+
+////std::priority_queue
+//默认情况下使用 std::vector 作为其底层容器，并且使用 std::make_heap、std::push_heap 和 std::pop_heap 算法来维护堆的性质基于堆实现的
+
+////静态链接和动态链接
+//静态链接库
+//程序编译时，静态库的内容会被复制到最终的可执行文件中
+//导致较大的可执行文件大小
+//多个程序使用相同的库，每个程序都有自己的副本，这将导致内存的浪费
+//动态链接库
+//程序在编译时并不复制库中的代码，而是在程序运行时加载库文件
+//多个正在运行的程序共享，只需在内存中有一个副本
+
+////对一个对象先malloc后delete这样使用可以吗
+//不会调用对象的构造函数和析构函数
+//C++中使用 new 和 delete 来动态分配和释放对象的内存，因为它们会正确调用对象的构造函数和析构函数，确保对象的状态正确初始化和正确释放
+
+////内存映射文件
+//内存管理功能，它允许应用程序将磁盘上的文件内容映射到进程的地址空间
+//好处是可以像访问普通内存那样访问文件数据，通过指针直接读写文件，而不是调用传统的文件I/O操作（如read和write）。这种方式可以提高处理大型文件时的性能，特别是需要频繁随机访问文件部分内容的场景，常见的如mmap
+
+#include <iostream>
+#include <list>
+
+class MemoryPool {
+public:
+    MemoryPool(size_t size, unsigned int count) {
+        for (unsigned int i = 0; i < count; ++i) {
+            freeBlocks.push_back(new char[size]);
+        }
+        blockSize = size;
+    }
+
+    ~MemoryPool() {
+        for (auto block : freeBlocks) {
+            delete[] block;
+        }
+    }
+
+    void* allocate() {
+        if (freeBlocks.empty()) {
+            throw std::bad_alloc();
+        }
+
+        char* block = freeBlocks.front();
+        freeBlocks.pop_front();
+        return block;
+    }
+
+    void deallocate(void* block) {
+        freeBlocks.push_back(static_cast<char*>(block));
+    }
+
+private:
+    std::list<char*> freeBlocks;
+    size_t blockSize;
+};
+
+// 使用示例
+int main() {
+    const int blockSize = 32; // 块大小
+    const int blockCount = 10; // 块数量
+    MemoryPool pool(blockSize, blockCount);
+
+    // 分配内存
+    void* ptr1 = pool.allocate();
+    void* ptr2 = pool.allocate();
+
+    // 使用ptr1和ptr2...
+
+    // 释放内存
+    pool.deallocate(ptr1);
+    pool.deallocate(ptr2);
+
+    return 0;
+}

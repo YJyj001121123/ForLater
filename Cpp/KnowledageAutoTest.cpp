@@ -97,14 +97,24 @@
  * JNIEXPORT
  * JNICALL
  * Java + 包名 + 类名 + 方法名 形式的函数
+ * 静态注册中，JNI 方法是直接在 C/C++ 代码中声明和定义的
  * 
  * 动态注册
  * JNI_OnLoad RegisterNatives
+ * JNI 方法的注册发生在 Java 代码中，通过 JNI 函数在运行时注册 JNI 方法
  * 
  * 常见方法
  * jint GetVersion()
  * jclass FindClass(const char* name) --根据类的全路径找到相应的 jclass 对象
  * jmethodID GetMethodID(jclass clazz, const char name, const char sig)--获取类中某个非静态方法的ID
+ * 
+ * 怎么写的JNI
+ * public static native void nativeLoadSDK(String sdkName);
+ * @CalledByNative
+ * 
+ * JNI_GENERATOR_EXPORT 导出符号 
+ * 定义了一个JNI本地方法
+ * 
 */
 
 ////QT开发
@@ -112,6 +122,24 @@
 //https://zhuanlan.zhihu.com/p/531139706
 //https://juejin.cn/post/7338269539539648539
 /***
+ * Qt跨平台的C++开发框架
+ * moc全称是Meta-Object Compiler，也就是“元对象编译器”。如果发现Q_OBJECT需要生成另外源文件实现
+ * gcc前 moc把扩展语法处理掉
+ * src--->moc uic 
+ * 
+ * 消息系统  QEvent
+ * 信号---对象订阅事件 槽--另外对象关注 回调函数 connec 注册观察者
+ * 
+ * 初始化：
+ * 控件初始化放在构造函数
+ * 子控件随父控件销毁
+ * 
+ * ui文件---xml
+ * 如果需要设置属性 自定义代码
+ * Qt::WA_NativeWindow 是告诉 Qt 在部件上创建一个原生窗口的属性
+ * QThread
+ * 
+ * 
  * Qt的元对象小工具为对象间的交流、运行时类型信息和动态属性小工具提供了警报和槽机制。
  * 元项系统是基于三件事。
  * QObject宏为可以利用元对象工具的项目提供了一个基础宏。
@@ -120,11 +148,200 @@
  * moc工具读取一个C++源文件。如果它发现了一个或更多的包括Q_OBJECTmacro的优雅声明，它就会产生任何其他的C++供应文件，这些文件包含了每个指令的元项代码。
  * 
  * 先调用 moc 和 uic 对 Qt 源文件进行预处理，然后再调用编译器进行编译
+ * 
+ * 信号槽机制
+ * MOC查找头文件中的signal与slots，标记出信号槽。
+ * 将信号槽信息储存到类静态变量staticMetaObject中，并按照声明的顺序进行存放，建立索引。
+ * connect链接，将信号槽的索引信息放到一个双向链表中，彼此配对。
+ * emit被调用，调用信号函数，且传递发送信号的对象指针，元对象指针，信号索引，参数列表到active函数。
+ * active函数在双向链表中找到所有与信号对应的槽索引，根据槽索引找到槽函数，执行槽函数
+ * 
+ * 如何打包
+ * windeployqt
+ * 
+ * 信号槽的链接方式
+ * Qt::AutoConnection  默认值，使用这个值则连接类型会在信号发送时决定
+ * Qt::DirectConnection 接收者和发送者在同一个线程，则自动使用Qt::DirectConnection类型
+ * Qt::QueuedConnection 接收者和发送者不在一个线程，则自动使用Qt::QueuedConnection类型
+ * Qt::BlockingQueuedConnection 多线程间需要同步的场合
+ * Qt::UniqueConnection 避免了重复连接。
+ * 
+ * Qt的D指针与Q指针
+ * D
+ * 一种约定，用于实现对象的内部数据隐藏和封装
+ * 通常是一个私有成员变量，用于指向对象的私有数据。通过将私有数据放在类的私有部分
+ * 可以隐藏对象的内部实现细节，从而提高代码的安全性和可维护性
+ * 指向一个包含所有数据的私有数据结构体
+ * 私有的结构体可以随意改变，而不需要重新编译整个工程项目
+ * 隐藏实现细节
+ * 头文件中没有任何实现细节，可以作为API使用原本在头文件的实现部分转移到乐源文件，
+ * 所以编译速度有所提高
+ * Q
+ * 一种智能指针，用于管理动态分配的对象内存
+ * 私有的结构体中储存一个指向公有类的Q指针。
+ * Qt中的一个类常用一个PrivateXXX类来处理内部逻辑，使得内部逻辑与外部接口分开，
+ * 这个PrivateXXX对象通过D指针来访问；在PrivateXXX中有需要引用Owner的内容，通过Q指针来访问。
+ * 由于D和Q指针是从基类继承下来的，子类中由于继承导致类型发生变化，
+ * 需要通过static_cast类型转化，所以DPTR()与QPTR()宏定义实现了转换
+ * 
+ * QtCore：提供了 Qt 的核心功能，例如基本的非 GUI 类、线程和事件处理等。
+ * QtGui：提供用户界面（UI）类，例如窗口部件、按钮、标签等。此外，它还包含 QPainter 和 QPalette 等绘图和调色板类
+ * QtWidgets：是 QtGui 模块的子集，提供了一套完整的可视化 UI 控件库，例如按钮、文本编辑器、表格等，用于构建跨平台的桌面应用程序
+ * QtNetwork：提供网络编程类，用于创建 TCP 和 UDP 客户端和服务器，以及处理套接字和 HTTP 请求。
+ * QtSql：提供简单易用的数据库访问 API，用于在 Qt 中连接、查询和操作数据源中的数据
+ * 
+ * 
+ * 
 */
+#include <QObject>
+class Counter : public QObject
+{
+    Q_OBJECT
 
+public:
+    Counter() { m_value = 0; }
+
+    int value() const { return m_value; }
+
+public slots: //回调函数
+    void setValue(int value);
+
+signals:
+    void valueChanged(int newValue);
+
+private:
+    int m_value;
+};
+void Counter::setValue(int value)
+{
+    if (value != m_value) {
+        m_value = value;
+        emit valueChanged(value);  //emit 触发事件
+    }
+}
+int main(){
+    Counter a,b;
+    QObject::connect(&a, &Counter::valueChanged, &b, &Counter::setValue); 
+    //a的触发这个valuechanged 就会触发b的setvalue
+    a.setValue(12); // a == 12  b==12
+
+    QApplication app();
+    Qwidget windows;
+
+}
 
 ////Websocket
 //https://chodocs.cn/interview/net/websocket/
 //https://blog.csdn.net/cpcpcp123/article/details/121844051
+/***
+ * 全双工 应用层协议 允许服务端向客户端发送 基于 TCP
+ * 一次握手就可以连接
+ * HTTP兼容
+ * 可以发送文本也可以二进制
+ * 协议标识符：ws
+ * WebSocket 在建立握手时，数据是通过 HTTP 传输的。但是建立之后，在真正传输时候是不需要 HTTP 协议的
+ * 
+ * websocket 超时没有消息自动断开连接
+ * 需要知道服务端设置的超时时长是多少，在小于超时时间内发送心跳包
+ * 客户端每隔一个时间间隔发生一个探测包给服务器
+ * 客户端发包时启动一个超时定时器,等待服务端的回应，判断服务器是否正常
+ * 
+*/
+
 ////C++网络编程
 //看connect代码
+//设置注册信息
+//设置PingLost 超时时间
+//设置连接状态监听器
+//心跳
+//重连
+//回调
+//事件处理
+
+//open url 和回调
+
+//emit 发送事件。传入事件名称和数据，并将其发送到 WebSocket 服务器
+//on 注册时间处理函数
+#include <iostream>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/client.hpp>
+#include <mutex>
+
+class WebSocketClient {
+public:
+    WebSocketClient() {
+        client_.init_asio();
+        client_.set_open_handler(std::bind(&WebSocketClient::onOpen, this, std::placeholders::_1));
+        client_.set_message_handler(std::bind(&WebSocketClient::onMessage, this, std::placeholders::_1, std::placeholders::_2));
+        client_.set_close_handler(std::bind(&WebSocketClient::onClose, this, std::placeholders::_1));
+    }
+
+    void connect(const std::string& uri) {
+        websocketpp::lib::error_code ec;
+        client::connection_ptr con = client_.get_connection(uri, ec);
+
+        if (ec) {
+            std::cout << "Error: " << ec.message() << std::endl;
+            return;
+        }
+
+        client_.connect(con);
+    }
+
+    void send(const std::string& message) {
+        websocketpp::lib::error_code ec;
+        client_.send(hdl_, message, websocketpp::frame::opcode::text, ec);
+        if (ec) {
+            std::cout << "Error: " << ec.message() << std::endl;
+        }
+    }
+
+    void close() {
+        client_.close(hdl_, websocketpp::close::status::normal, "Closing connection");
+    }
+
+private:
+    typedef websocketpp::client<websocketpp::config::asio_client> client;
+    typedef websocketpp::connection_hdl connection_hdl;
+    typedef client::message_ptr message_ptr;
+
+    client client_;
+    connection_hdl hdl_;
+    std::mutex mutex_;
+
+    void onOpen(connection_hdl hdl) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        hdl_ = hdl;
+        std::cout << "Connected!" << std::endl;
+    }
+
+    void onMessage(connection_hdl hdl, message_ptr msg) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::cout << "Received: " << msg->get_payload() << std::endl;
+    }
+
+    void onClose(connection_hdl hdl) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::cout << "Disconnected!" << std::endl;
+    }
+};
+
+int main() {
+    WebSocketClient client;
+    client.connect("ws://localhost:9000");
+
+    std::string message;
+    while (true) {
+        std::cout << "Enter message (or 'quit' to exit): ";
+        std::getline(std::cin, message);
+
+        if (message == "quit") {
+            break;
+        }
+
+        client.send(message);
+    }
+
+    client.close();
+    return 0;
+}
