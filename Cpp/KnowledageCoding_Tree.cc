@@ -72,7 +72,7 @@ void traversal(TreeNode* cur, std::vector<int>& vec){
 std::vector<int> preorderTraversal2(TreeNode* root) {
         std::stack<TreeNode*> st;
         std::vector<int> result;
-        if (root == NULL) return result;
+        if (root == nullptr) return result;
         st.push(root);
         while (!st.empty()) {
             TreeNode* node = st.top();                       // 中
@@ -94,8 +94,8 @@ std::vector<int> inorderTraversal(TreeNode* root) {
         std::vector<int> result;
         std::stack<TreeNode*> st;
         TreeNode* cur = root;
-        while (cur != NULL || !st.empty()) {
-            if (cur != NULL) { // 指针来访问节点，访问到最底层
+        while (cur != nullptr || !st.empty()) {
+            if (cur != nullptr) { // 指针来访问节点，访问到最底层
                 st.push(cur); // 将访问的节点放进栈
                 cur = cur->left;                // 左
             } else {
@@ -174,6 +174,92 @@ std::vector<std::vector<int>> levelOrder(TreeNode* root) {
     order(root, result, depth);
     return result;
 }
+//二叉树的右视图
+//输入: [1,2,3,null,5,null,4]
+//输出: [1,3,4]
+//思路：BFS
+std::vector<int> rightSideView(TreeNode* root) {
+        std::queue<TreeNode*> nodeQueue;
+        if(root != nullptr) nodeQueue.push(root);
+        std::vector<int> res;
+        while (!nodeQueue.empty()) {
+            for(int i = 0; i < nodeQueue.size(); i++){
+                TreeNode* node = nodeQueue.front();
+                nodeQueue.pop();
+                if(i = nodeQueue.size()-1) res.push_back(node->val);
+                if(node->left) nodeQueue.push(node->left);
+                if(node->right) nodeQueue.push(node->right);
+            }
+        }
+        return res;
+}
+//二叉树层平均值
+//输入[3,9,20,null,null,15,7]
+//输出[3,14.5,11]
+std::vector<double> arergaeLevels(TreeNode* root){
+    std::queue<TreeNode*> que;
+    if(root != nullptr) que.push(root);
+    std::vector<double> res;
+    while(!que.empty()){
+        int size = que.size();
+        double sum = 0;
+        for(int i = 0; i<size; i++){
+            TreeNode* node = que.front();
+            que.pop();
+            sum += node->val;
+            if(node->left) que.push(node->left);
+            if(node->right) que.push(node->right);
+        }
+        res.push_back(sum/size);
+    }
+    return res;
+}
+//N叉树层序遍历
+std::vector<std::vector<int>> levelOrder(TreeNode* root) {
+    std::queue<TreeNode*> que;
+    if(root != nullptr) que.push(root);
+    std::vector<std::vector<int>> result;
+    while(!que.empty())
+    {
+        int size = que.size();
+        std::vector<int> vec;
+        for(int i = 0; i < size; i++)
+        {
+            TreeNode* node = que.front();
+            que.pop();
+            vec.push_back(node->val);
+            // 将节点孩子加入队列
+            for(int j = 0; j < node->children.size(); j++)
+            {
+                if (node->children[j]) que.push(node->children[j]);
+            }
+        }
+        result.push_back(vec);
+    }
+    return result;
+}
+//最大深度
+int maxDepth(TreeNode* root) {
+    if (!root) return 0;
+    int res = 0;
+    std::queue<TreeNode*> q{{root}};
+    while (!q.empty()) {
+        ++res;
+        for (int i = q.size(); i > 0; --i) {
+            TreeNode *t = q.front(); q.pop();
+            if (t->left) q.push(t->left);
+            if (t->right) q.push(t->right);
+        }
+    }
+    return res;
+}
+//最小深度
+int minDepth(TreeNode* root) {
+    if (root == NULL) return 0;
+    int m1 = minDepth(root->left);
+    int m2 = minDepth(root->right);
+    return root->left == NULL || root->right == NULL ? m1 + m2 + 1 : min(m1, m2) + 1;
+}
 
 //翻转二叉树
 TreeNode* invertTree(TreeNode* root) {
@@ -241,3 +327,267 @@ bool isSymmetric(TreeNode* root) {
     if (root == NULL) return true;
     return compare(root->left, root->right);
 }
+
+//完全二叉树的节点个数
+//输入：root = [1,2,3,4,5,6]
+//输出：6
+int getNodeSum(TreeNode* cur){
+    if(cur == nullptr) return 0;
+    int leftNum = getNodeSum(cur->left);
+    int rightNum = getNodeSum(cur->right);
+    int treeSum = leftNum+rightNum+1;
+    return treeSum;
+}
+//平衡二叉树--一个二叉树每个节点 的左右两个子树的高度差的绝对值不超过1
+//给定二叉树 [3,9,20,null,null,15,7] true
+int getHeight(TreeNode* node) {
+    if (node == NULL) {
+        return 0;
+    }
+    int leftHeight = getHeight(node->left);
+    if (leftHeight == -1) return -1;
+    int rightHeight = getHeight(node->right);
+    if (rightHeight == -1) return -1;
+    return abs(leftHeight - rightHeight) > 1 ? -1 : 1 + std::max(leftHeight, rightHeight);
+}
+bool isBalanced(TreeNode* root) {
+    return getHeight(root) == -1 ? false : true;
+}
+//二叉树所有路径--根到叶子
+// 版本一
+class Solution {
+private:
+    void traversal(TreeNode* cur, std::vector<int>& path, std::vector<std::string>& result) {
+        path.push_back(cur->val); // 中，中为什么写在这里，因为最后一个节点也要加入到path中 
+        // 这才到了叶子节点
+        if (cur->left == NULL && cur->right == NULL) {
+            std::string sPath;
+            for (int i = 0; i < path.size() - 1; i++) {
+                sPath += std::to_string(path[i]);
+                sPath += "->";
+            }
+            sPath += std::to_string(path[path.size() - 1]);
+            result.push_back(sPath);
+            return;
+        }
+        if (cur->left) { // 左 
+            traversal(cur->left, path, result);
+            path.pop_back(); // 回溯
+        }
+        if (cur->right) { // 右
+            traversal(cur->right, path, result);
+            path.pop_back(); // 回溯
+        }
+    }
+
+public:
+    std::vector<std::string> binaryTreePaths(TreeNode* root) {
+        std::vector<std::string> result;
+        std::vector<int> path;
+        if (root == NULL) return result;
+        traversal(root, path, result);
+        return result;
+    }
+};
+
+//左叶子之和
+class Solution {
+public:
+    int sumOfLeftLeaves(TreeNode* root) {
+        if (root == NULL) return 0;
+        if (root->left == NULL && root->right== NULL) return 0;
+
+        int leftValue = sumOfLeftLeaves(root->left);    // 左
+        if (root->left && !root->left->left && !root->left->right) { // 左子树就是一个左叶子的情况
+            leftValue = root->left->val;
+        }
+        int rightValue = sumOfLeftLeaves(root->right);  // 右
+
+        int sum = leftValue + rightValue;               // 中
+        return sum;
+    }
+};
+
+class Solution {
+public:
+    int sumOfLeftLeaves(TreeNode* root) {
+        stack<TreeNode*> st;
+        if (root == NULL) return 0;
+        st.push(root);
+        int result = 0;
+        while (!st.empty()) {
+            TreeNode* node = st.top();
+            st.pop();
+            if (node->left != NULL && node->left->left == NULL && node->left->right == NULL) {
+                result += node->left->val;
+            }
+            if (node->right) st.push(node->right);
+            if (node->left) st.push(node->left);
+        }
+        return result;
+    }
+};
+//路径总和
+class Solution {
+private:
+    bool traversal(TreeNode* cur, int count) {
+        if (!cur->left && !cur->right && count == 0) return true; // 遇到叶子节点，并且计数为0
+        if (!cur->left && !cur->right) return false; // 遇到叶子节点直接返回
+
+        if (cur->left) { // 左
+            count -= cur->left->val; // 递归，处理节点;
+            if (traversal(cur->left, count)) return true;
+            count += cur->left->val; // 回溯，撤销处理结果
+        }
+        if (cur->right) { // 右
+            count -= cur->right->val; // 递归，处理节点;
+            if (traversal(cur->right, count)) return true;
+            count += cur->right->val; // 回溯，撤销处理结果
+        }
+        return false;
+    }
+
+public:
+    bool hasPathSum(TreeNode* root, int sum) {
+        if (root == NULL) return false;
+        return traversal(root, sum - root->val);
+    }
+};
+
+//从中序与后序遍历序列构造二叉树
+class Solution {
+private:
+    // 中序区间：[inorderBegin, inorderEnd)，后序区间[postorderBegin, postorderEnd)
+    TreeNode* traversal (vector<int>& inorder, int inorderBegin, int inorderEnd, vector<int>& postorder, int postorderBegin, int postorderEnd) {
+        if (postorderBegin == postorderEnd) return NULL;
+
+        int rootValue = postorder[postorderEnd - 1];
+        TreeNode* root = new TreeNode(rootValue);
+
+        if (postorderEnd - postorderBegin == 1) return root;
+
+        int delimiterIndex;
+        for (delimiterIndex = inorderBegin; delimiterIndex < inorderEnd; delimiterIndex++) {
+            if (inorder[delimiterIndex] == rootValue) break;
+        }
+        // 切割中序数组
+        // 左中序区间，左闭右开[leftInorderBegin, leftInorderEnd)
+        int leftInorderBegin = inorderBegin;
+        int leftInorderEnd = delimiterIndex;
+        // 右中序区间，左闭右开[rightInorderBegin, rightInorderEnd)
+        int rightInorderBegin = delimiterIndex + 1;
+        int rightInorderEnd = inorderEnd;
+
+        // 切割后序数组
+        // 左后序区间，左闭右开[leftPostorderBegin, leftPostorderEnd)
+        int leftPostorderBegin =  postorderBegin;
+        int leftPostorderEnd = postorderBegin + delimiterIndex - inorderBegin; // 终止位置是 需要加上 中序区间的大小size
+        // 右后序区间，左闭右开[rightPostorderBegin, rightPostorderEnd)
+        int rightPostorderBegin = postorderBegin + (delimiterIndex - inorderBegin);
+        int rightPostorderEnd = postorderEnd - 1; // 排除最后一个元素，已经作为节点了
+
+        root->left = traversal(inorder, leftInorderBegin, leftInorderEnd,  postorder, leftPostorderBegin, leftPostorderEnd);
+        root->right = traversal(inorder, rightInorderBegin, rightInorderEnd, postorder, rightPostorderBegin, rightPostorderEnd);
+
+        return root;
+    }
+public:
+    TreeNode* buildTree(vector<int>& inorder, vector<int>& postorder) {
+        if (inorder.size() == 0 || postorder.size() == 0) return NULL;
+        // 左闭右开的原则
+        return traversal(inorder, 0, inorder.size(), postorder, 0, postorder.size());
+    }
+};
+//从前序与中序遍历序列构造二叉树
+class Solution {
+private:
+        TreeNode* traversal (vector<int>& inorder, int inorderBegin, int inorderEnd, vector<int>& preorder, int preorderBegin, int preorderEnd) {
+        if (preorderBegin == preorderEnd) return NULL;
+
+        int rootValue = preorder[preorderBegin]; // 注意用preorderBegin 不要用0
+        TreeNode* root = new TreeNode(rootValue);
+
+        if (preorderEnd - preorderBegin == 1) return root;
+
+        int delimiterIndex;
+        for (delimiterIndex = inorderBegin; delimiterIndex < inorderEnd; delimiterIndex++) {
+            if (inorder[delimiterIndex] == rootValue) break;
+        }
+        // 切割中序数组
+        // 中序左区间，左闭右开[leftInorderBegin, leftInorderEnd)
+        int leftInorderBegin = inorderBegin;
+        int leftInorderEnd = delimiterIndex;
+        // 中序右区间，左闭右开[rightInorderBegin, rightInorderEnd)
+        int rightInorderBegin = delimiterIndex + 1;
+        int rightInorderEnd = inorderEnd;
+
+        // 切割前序数组
+        // 前序左区间，左闭右开[leftPreorderBegin, leftPreorderEnd)
+        int leftPreorderBegin =  preorderBegin + 1;
+        int leftPreorderEnd = preorderBegin + 1 + delimiterIndex - inorderBegin; // 终止位置是起始位置加上中序左区间的大小size
+        // 前序右区间, 左闭右开[rightPreorderBegin, rightPreorderEnd)
+        int rightPreorderBegin = preorderBegin + 1 + (delimiterIndex - inorderBegin);
+        int rightPreorderEnd = preorderEnd;
+
+        root->left = traversal(inorder, leftInorderBegin, leftInorderEnd,  preorder, leftPreorderBegin, leftPreorderEnd);
+        root->right = traversal(inorder, rightInorderBegin, rightInorderEnd, preorder, rightPreorderBegin, rightPreorderEnd);
+
+        return root;
+    }
+
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        if (inorder.size() == 0 || preorder.size() == 0) return NULL;
+
+        // 参数坚持左闭右开的原则
+        return traversal(inorder, 0, inorder.size(), preorder, 0, preorder.size());
+    }
+};
+//最大二叉树
+//二叉树的根是数组中的最大元素。
+//左子树是通过数组中最大值左边部分构造出的最大二叉树。
+//右子树是通过数组中最大值右边部分构造出的最大二叉树。
+class Solution {
+public:
+    TreeNode* constructMaximumBinaryTree(vector<int>& nums) {
+        TreeNode* node = new TreeNode(0);
+        if (nums.size() == 1) {
+            node->val = nums[0];
+            return node;
+        }
+        // 找到数组中最大的值和对应的下标
+        int maxValue = 0;
+        int maxValueIndex = 0;
+        for (int i = 0; i < nums.size(); i++) {
+            if (nums[i] > maxValue) {
+                maxValue = nums[i];
+                maxValueIndex = i;
+            }
+        }
+        node->val = maxValue;
+        // 最大值所在的下标左区间 构造左子树
+        if (maxValueIndex > 0) {
+            vector<int> newVec(nums.begin(), nums.begin() + maxValueIndex);
+            node->left = constructMaximumBinaryTree(newVec);
+        }
+        // 最大值所在的下标右区间 构造右子树
+        if (maxValueIndex < (nums.size() - 1)) {
+            vector<int> newVec(nums.begin() + maxValueIndex + 1, nums.end());
+            node->right = constructMaximumBinaryTree(newVec);
+        }
+        return node;
+    }
+};
+//合并二叉树
+class Solution {
+public:
+    TreeNode* mergeTrees(TreeNode* t1, TreeNode* t2) {
+        if (t1 == NULL) return t2; // 如果t1为空，合并之后就应该是t2
+        if (t2 == NULL) return t1; // 如果t2为空，合并之后就应该是t1
+        // 修改了t1的数值和结构
+        t1->val += t2->val;                             // 中
+        t1->left = mergeTrees(t1->left, t2->left);      // 左
+        t1->right = mergeTrees(t1->right, t2->right);   // 右
+        return t1;
+    }
+};

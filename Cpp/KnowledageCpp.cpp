@@ -512,6 +512,9 @@ public:
         p.ref_cnt_ = nullptr;
         return *this;
     }
+    T* get() const { return ptr_; }
+    T* operator->() const { return ptr_; }
+    T& operator*() const { return *ptr_; }
 
 private:
     void clear(){
@@ -1283,4 +1286,64 @@ int main() {
     pool.deallocate(ptr2);
 
     return 0;
+}
+
+////乐观锁
+//乐观锁一般适用于读多写少的场景。
+//乐观锁：乐观锁假定冲突发生的几率很小，因此在数据操作前并不会加锁，但会在进行更新等操作时检查是否有其他线程对数据进行了修改
+
+////悲观锁
+//悲观锁假设冲突发生的几率很大，所以在每次读写数据前都会先加锁
+
+////系统如何将一个信号通知到进程
+//内核会修改进程上下文信息，并设置标识表明收到信号。
+//当进程再次被调度执行时，它会先检查是否有未处理的信号，如果有，就调用相应的信号处理函数。
+//如果没有为该信号指定处理函数或者信号被阻塞，那么就执行系统默认的操作，可能是忽略、停止进程或者终止进程等。
+
+////Linux 异步机制
+//异步IO（AIO）：在发起IO请求后，立即返回，不阻塞当前进程或线程。当IO操作完成后，再通知用户程序。
+//信号（Signal）：当某些事件发生时，系统会发送信号给进程。对信号的处理可以是忽略、捕捉（指定处理函数）、执行默认操作等。
+//回调函数：在某些操作完成后，调用预先定义的函数。
+//epoll/select/poll异步IO模型：Linux下的多路复用IO模型，可以同时监控多个文件描述符的读写状态，当文件描述符准备好后，通过回调通知应用程序。
+
+////守护进程
+//后台运行的进程，它通常在系统引导的时候启动，系统关闭前结束
+int main() {
+    // Fork off the parent process
+    pid_t pid = fork();
+    if (pid < 0) {
+        exit(EXIT_FAILURE);
+    }
+    // If we got a good PID, then we can exit the parent process
+    if (pid > 0) {
+        exit(EXIT_SUCCESS);
+    }
+    // Change the file mode mask
+    umask(0);
+    // Create a new SID for the child process
+    if (setsid() < 0) {
+        exit(EXIT_FAILURE);
+    }
+    // Change the current working directory
+    if (chdir("/") < 0) {
+        exit(EXIT_FAILURE);
+    }
+    // Close out the standard file descriptors
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+    // Open the log file in read/write mode
+    int log_fd = open("/var/log/mydaemon.log", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (log_fd < 0) {
+        exit(EXIT_FAILURE);
+    }
+    // Redirect standard input, output, and error to the log file
+    dup2(log_fd, STDIN_FILENO);
+    dup2(log_fd, STDOUT_FILENO);
+    dup2(log_fd, STDERR_FILENO);
+    // Now the daemon is ready to do its work
+    // For example, you can put your daemon's main loop here
+    // Remember to close the log file descriptor when the daemon exits
+    close(log_fd);
+    return EXIT_SUCCESS;
 }
