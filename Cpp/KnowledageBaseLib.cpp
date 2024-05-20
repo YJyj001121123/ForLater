@@ -1,6 +1,9 @@
 
 ////EventQueue
 //多个生产者一个消费者的场景 ，需要事件队列管理可能存在的事件积压，以及插入取出
+//业务方调用 sdk 内部 api 时不能阻塞调用线程；
+//业务方调用 sdk 的接口所在的线程对我们而言是不确定的，需要将业务方对接口的调用转到内部的确定线程，保证数据同步；
+//在调用业务方提供的回调接口时，我们无法保证业务方回调接口的实现逻辑是否足够简单，可能非常复杂，如果我们在 rtc_worker_queue 中直接调用业务方的回调，可能导致 sdk 的主线程卡死
 std::mutex locker; //对EventQueue的数据成员操作，需要加锁
 std::condition_variable             cv_; //条件变量，用来实现不同线程之间的同步，当有新的事件插入队列需要通知其他可能在等待的线程
 std::list<Item>                     event_queue_;
@@ -100,3 +103,64 @@ map
 
 ////Kcp
 //https://zhuanlan.zhihu.com/p/581526921
+
+//多线程销毁了
+
+
+#include <iostream>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+std::queue<int> eventQueue; // 事件队列
+std::mutex mtx; // 互斥量，保护事件队列
+std::condition_variable cv; // 条件变量，用于等待事件
+
+// 生产者函数
+void producer(int id) {
+    while (true) {
+        int event = rand() % 100 + 1; // 模拟生成事件
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            eventQueue.push(event); // 插入事件到队列中
+            std::cout << "Producer " << id << " generates event: " << event << std::endl;
+        }
+        cv.notify_one(); // 通知消费者有新事件到达
+        std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000 + 500)); // 模拟生产间隔
+    }
+}
+
+// 消费者函数
+void consumer() {
+    while (true) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, []{ return !eventQueue.empty(); }); // 等待有事件到达
+
+        int event = eventQueue.front(); // 取出队首事件
+        eventQueue.pop(); // 移除队首事件
+        std::cout << "Consumer consumes event: " << event << std::endl;
+
+        lock.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000 + 500)); // 模拟消费间隔
+    }
+}
+
+int main() {
+    // 创建生产者线程
+    std::thread producers[3];
+    for (int i = 0; i < 3; ++i) {
+        producers[i] = std::thread(producer, i);
+    }
+
+    // 创建消费者线程
+    std::thread consumerThread(consumer);
+
+    // 等待线程结束
+    for (int i = 0; i < 3; ++i) {
+        producers[i].join();
+    }
+    consumerThread.join();
+
+    return 0;
+}

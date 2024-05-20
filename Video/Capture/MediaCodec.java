@@ -4,6 +4,15 @@ public class MediaCodec {
      * MediaExtractor、MediaMuxer、AudioTrack结合使用，能够编解码诸如H.264、H.265、AAC、3gp等常见的音视频格式
      */
 }
+//比特率表示视频数据的传输速率，通常以每秒传输的比特数（bps，bits per second）为单位。
+//比特率决定了视频的质量和文件大小，较高的比特率通常会产生更高质量的视频，但文件大小也会更大。
+//位深越高，可以表示的颜色或灰度级别就越多，图像的细节和色彩渐变也就更加丰富。
+//但是，高位深也会导致数据量的增加，对存储和处理资源的要求也更高。
+
+
+
+//MediaExtractor 从多媒体文件中读取音视频数据，然后对这些数据进行解码或其他处理。
+//MediaMuxer 将音频和视频数据合并到一个容器中，从而创建新的多媒体文件，如MP4、MKV等。
 //创建编解码器
 createEncoderByType（string type）
 createDecoderByType(String type)

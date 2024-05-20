@@ -46,6 +46,40 @@ int setenv_proxy(const char *name, const char *value, int overwrite) {
 
 
 ////Dealloc
+//资源获取环可以采用图来存储， 使用有向图来存储。 线程 A 获取线程 B 已占用的锁，则为
+//线程 A 指向线程 B。 如何为线程 B 已占用的锁？运行过程线程 B 获取成功的锁。
+//检测的原理采用另一个线程定时对图进程检测是否有环的存在
+
+//同一个线程可以多次获取同一个递归锁，不会产生死锁。而如果一个线程多次获取同一个非递归锁，则会产生死锁
+//backTrace() 执行线程的回溯操作，用于死锁检测和排查
+
+//auto trace_map = basic::TaskTrace::GetTaskTraceMap(); 获取系统中任务的追踪映射，记录任务队列的执行情况
+auto last_num = TaskqueueDeadLockDetect::GetLastExeNum().find(_weak.first);
+if (last_num != TaskqueueDeadLockDetect::GetLastExeNum().end()) {
+    // 检查是否存在上次执行的任务编号
+    if ((now_pick > now_end) && (now_end == last_num->second.first)) {
+        // 如果当前任务执行数大于等于上次执行数，并且当前任务完成数等于上次执行数，则认为可能存在死锁
+        if (++last_num->second.second > 1) {
+            // 发现死锁，根据配置决定是报告死锁还是直接终止程序
+            if (deadlock_params_.enable_dead_lock && last_num->second.second > deadlock_params_.dead_lock_time) {
+                if (deadlock_params_.enable_dead_lock_notify) {
+                    // 报告死锁情况
+                } else {
+                    // 直接终止程序
+                    abortWrapper();
+                }
+            }
+        }
+    } else {
+        // 死锁解除，重置死锁计数器
+        last_num->second.second = 0;
+    }
+}
+//首先检查是否存在上次执行的任务编号，如果存在，则意味着上次执行时的任务信息仍然可用。
+//如果当前任务执行数大于等于上次执行数，并且当前任务完成数等于上次执行数，则可能发生了死锁。此时会增加死锁持续时间计数器。
+//如果发现死锁并且满足一定持续时间条件，根据配置决定是报告死锁还是直接终止程序
+//如果没有发现死锁，重置死锁持续时间计数器，以便在下次检测中重新开始计数
+
 
 ////GTest UT
 //https://juejin.cn/post/6844903976765243400
@@ -134,7 +168,7 @@ public:
 　　MOCK_METHOD1(Funtion2, int (std::string ));
 };
 
-class RefactorA _UT : public :: testing::Test
+class RefactorA_UT : public :: testing::Test
 {
 protected:
 　　virtual void SetUp(){}

@@ -1347,3 +1347,73 @@ int main() {
     close(log_fd);
     return EXIT_SUCCESS;
 }
+
+
+////提供一个创建一系列相关或相互依赖对象的接口，而无需指定它们的具体类。
+
+#include <iostream>
+#include <memory>
+
+// 抽象基类 Shape
+class Shape {
+public:
+    virtual void draw() = 0;
+};
+
+// 具体类 Circle
+class Circle : public Shape {
+public:
+    void draw() override {
+        std::cout << "Draw Circle" << std::endl;
+    }
+};
+
+// 具体类 Square
+class Square : public Shape {
+public:
+    void draw() override {
+        std::cout << "Draw Square" << std::endl;
+    }
+};
+
+// 具体类 Triangle
+class Triangle : public Shape {
+public:
+    void draw() override {
+        std::cout << "Draw Triangle" << std::endl;
+    }
+};
+
+// 工厂类 ShapeFactory
+class ShapeFactory {
+public:
+    std::unique_ptr<Shape> createShape(const std::string& type) {
+        if (type == "Circle") {
+            return std::make_unique<Circle>();
+        } else if (type == "Square") {
+            return std::make_unique<Square>();
+        } else if (type == "Triangle") {
+            return std::make_unique<Triangle>();
+        } else {
+            return nullptr; // 处理未知类型
+        }
+    }
+};
+
+int main() {
+    ShapeFactory factory;
+
+    // 创建 Circle 对象
+    std::unique_ptr<Shape> circle = factory.createShape("Circle");
+    circle->draw();
+
+    // 创建 Square 对象
+    std::unique_ptr<Shape> square = factory.createShape("Square");
+    square->draw();
+
+    // 创建 Triangle 对象
+    std::unique_ptr<Shape> triangle = factory.createShape("Triangle");
+    triangle->draw();
+
+    return 0;
+}
