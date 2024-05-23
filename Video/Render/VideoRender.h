@@ -2,7 +2,7 @@
 //外部渲染 视频流与渲染器的绑定
 
 class VideoRenderNode{};
-//- 各端支持的帧格式kOriginal、kI420, RGBA
+//各端支持的帧格式kOriginal、kI420, RGBA（A是Alpha通道透明度）
 //iOS和Mac支持BGRA、NV12；kOriginal指维持原始视频帧格式，以达到效率最大化
 
 

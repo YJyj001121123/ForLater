@@ -45,7 +45,7 @@ int quote_execute(){
 ////static
 //静态变量初始化只有一次，编译器为其分配内存。
 //静态局部变量：函数内部声明的。即使函数结束，值也会保留。C中，代码前完成初始化（分配好内存，就会初始化）。
-// C++ 初始化在执行时候进行初始化，必须执行构造和析构函数。
+//C++ 初始化在执行时候进行初始化，必须执行构造和析构函数。
 void static_conut(){
     static int cnt = 0;
     cnt++;
@@ -834,7 +834,7 @@ private:
     Singleton() = default;
     // 防止拷贝和赋值。
     Singleton& operator=(const Singleton&) = delete;
-    Singleton(const Singleton& singleton2) = delete;
+    Singleton(const Singleton& ) = delete;
 private:
     static Singleton* singleton_;
 };
@@ -1417,3 +1417,85 @@ int main() {
 
     return 0;
 }
+
+#include <iostream>
+#include <vector>
+
+// 观察者接口
+class Observer {
+public:
+    virtual void update(const std::string& message) = 0;
+};
+
+// 被观察者类
+class Subject {
+public:
+    void attach(Observer* observer) {
+        observers.push_back(observer);
+    }
+
+    void detach(Observer* observer) {
+        observers.erase(std::remove(observers.begin(), observers.end(), observer), observers.end());
+    }
+
+    void notify(const std::string& message) {
+        for (Observer* observer : observers) {
+            observer->update(message);
+        }
+    }
+
+private:
+    std::vector<Observer*> observers;
+};
+
+// 具体观察者类
+class ConcreteObserver : public Observer {
+public:
+    ConcreteObserver(const std::string& name) : name(name) {}
+
+    void update(const std::string& message) override {
+        std::cout << name << " received message: " << message << std::endl;
+    }
+
+private:
+    std::string name;
+};
+
+int main() {
+    // 创建被观察者和观察者
+    Subject subject;
+    ConcreteObserver observer1("Observer 1");
+    ConcreteObserver observer2("Observer 2");
+
+    // 注册观察者
+    subject.attach(&observer1);
+    subject.attach(&observer2);
+
+    // 发送通知
+    subject.notify("Hello, observers!");
+
+    // 移除观察者
+    subject.detach(&observer1);
+
+    // 再次发送通知
+    subject.notify("Goodbye, observer 1!");
+
+    return 0;
+}
+
+/***
+ * 1、说一个项目 -- Watchcat 探讨了怎么实现的
+ * 2、探讨EvenQueue -- 问太细了 后面回答不上来
+ * 3、进程和线程 。。。 问的很细 
+ * 4、为什么进程是独立的内存空间 --- 
+ * 5、线程怎么竞争资源的 -- 只回答了 互斥量和锁
+ * 5、进程怎么通信的 -- 回答了 管道 信号量 信号 共享内存
+ * 6、给了常量指针和指针常量的代码
+ * 7、写了段代码 问 合理吗 ---- 不合理 返回的是引用 a是局部变量
+ * int &f(){
+ *  int a =0;
+ *  return a;
+ * }
+ * 8、类模板 类模板为什么在头文件写 。。。。。
+ * 9、寻找最大峰值
+*/
