@@ -1,3 +1,0 @@
-# Activity
-1、一个Activity通常就是一个单独的屏幕（窗口），它上面可以显示一些控件也可以监听并处理用户的事件做出响应
-2、Android应用中每一个Activity都必须要在AndroidManifest.xml配置文件中声明，否则系统将不识别也不执行该Activity。
